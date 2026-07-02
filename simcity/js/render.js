@@ -68,29 +68,96 @@ function heat(v, rgb) {
   return `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a.toFixed(2)})`;
 }
 
-// Draw the whole scene.
-function renderWorld(ctx, S, view) {
-  const cw = ctx.canvas.width, ch = ctx.canvas.height;
-  ctx.fillStyle = '#101820';
-  ctx.fillRect(0, 0, cw, ch);
-  ctx.save();
-  if (view.shakeAmt) {
-    ctx.translate((Math.random() - 0.5) * view.shakeAmt, (Math.random() - 0.5) * view.shakeAmt);
-  }
-  ctx.scale(CAM.zoom, CAM.zoom);
-  ctx.translate(CAM.x, CAM.y);
-  ctx.imageSmoothingEnabled = CAM.zoom < 1;
-
-  // visible tile bounds (conservative)
+function visibleBounds(cw, ch) {
   const corners = [screenToWorld(0, -SPRITE_PAD_TOP * CAM.zoom), screenToWorld(cw, 0), screenToWorld(0, ch), screenToWorld(cw, ch + TILE_H * CAM.zoom)];
   let minX = W, maxX = 0, minY = H, maxY = 0;
   for (const c of corners) {
     minX = Math.min(minX, c[0]); maxX = Math.max(maxX, c[0]);
     minY = Math.min(minY, c[1]); maxY = Math.max(maxY, c[1]);
   }
-  minX = clamp(Math.floor(minX) - 2, 0, W - 1); maxX = clamp(Math.ceil(maxX) + 2, 0, W - 1);
-  minY = clamp(Math.floor(minY) - 4, 0, H - 1); maxY = clamp(Math.ceil(maxY) + 4, 0, H - 1);
+  return [
+    clamp(Math.floor(minX) - 2, 0, W - 1), clamp(Math.ceil(maxX) + 2, 0, W - 1),
+    clamp(Math.floor(minY) - 4, 0, H - 1), clamp(Math.ceil(maxY) + 4, 0, H - 1),
+  ];
+}
 
+/* The static world (terrain, buildings, overlays) is expensive to raster,
+ * so it's cached on an offscreen canvas and only rebuilt when the camera,
+ * animation frame, overlay mode or world state changes. Cars, smoke,
+ * cursors and the tool ghost are drawn on top every frame. */
+window.__worldStamp = 0;
+const StaticLayer = { cv: null, key: '' };
+
+// Draw the whole scene.
+function renderWorld(ctx, S, view) {
+  const cw = ctx.canvas.width, ch = ctx.canvas.height;
+  const camKey = [CAM.x.toFixed(1), CAM.y.toFixed(1), CAM.zoom.toFixed(3), cw, ch,
+    view.animFrame, view.overlay || ''].join('|');
+  const worldKey = S.tickCount + ':' + window.__worldStamp;
+  const now = performance.now();
+  // camera / overlay changes redraw immediately; simulation churn is
+  // throttled so a fast sim doesn't force a full raster every frame
+  let need = !StaticLayer.cv || camKey !== StaticLayer.camKey;
+  if (!need && worldKey !== StaticLayer.worldKey && now - (StaticLayer.t || 0) > 150) need = true;
+  if (need) {
+    if (!StaticLayer.cv) StaticLayer.cv = document.createElement('canvas');
+    if (StaticLayer.cv.width !== cw || StaticLayer.cv.height !== ch) {
+      StaticLayer.cv.width = cw; StaticLayer.cv.height = ch;
+    }
+    drawStaticLayer(StaticLayer.cv.getContext('2d'), S, view, cw, ch);
+    StaticLayer.camKey = camKey; StaticLayer.worldKey = worldKey; StaticLayer.t = now;
+  }
+  if (view.shakeAmt) {
+    ctx.fillStyle = '#0d141c';
+    ctx.fillRect(0, 0, cw, ch);
+    ctx.drawImage(StaticLayer.cv,
+      (Math.random() - 0.5) * view.shakeAmt * CAM.zoom,
+      (Math.random() - 0.5) * view.shakeAmt * CAM.zoom);
+  } else {
+    ctx.drawImage(StaticLayer.cv, 0, 0);
+  }
+
+  // ---- dynamic layer: cars, smoke, disasters, cursors, ghost ----
+  ctx.save();
+  ctx.scale(CAM.zoom, CAM.zoom);
+  ctx.translate(CAM.x, CAM.y);
+  const [minX, maxX, minY, maxY] = visibleBounds(cw, ch);
+  for (let ty = minY; ty <= maxY; ty++) {
+    for (let tx = minX; tx <= maxX; tx++) {
+      const i = ty * W + tx;
+      const t = S.type[i];
+      if (t === B_ROAD && S.traffic[i] > 6) drawCars(ctx, S, i, tx, ty, view.time);
+      if (S.anch[i] === i && S.pwr[i]) {
+        let spots = SMOKE_SPOTS[t];
+        if (!spots && t === B_IND && S.lvl[i] >= 3) spots = indSmokeSpots(S.lvl[i]);
+        if (spots) drawSmoke(ctx, tx, ty, spots, view.time, i);
+      }
+    }
+  }
+  drawSceneOverlays(ctx, S, view);
+  ctx.restore();
+}
+
+// static pass: terrain, roads, buildings, fire, data overlay tints
+function drawStaticLayer(ctx, S, view, cw, ch) {
+  let bg = ctx._bgGrad;
+  if (!bg || ctx._bgH !== ch) {
+    bg = ctx.createLinearGradient(0, 0, 0, ch);
+    bg.addColorStop(0, '#0d141c');
+    bg.addColorStop(0.5, '#131e29');
+    bg.addColorStop(1, '#0f171f');
+    ctx._bgGrad = bg; ctx._bgH = ch;
+  }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, cw, ch);
+  ctx.save();
+  ctx.scale(CAM.zoom, CAM.zoom);
+  ctx.translate(CAM.x, CAM.y);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'low';
+
+  const [minX, maxX, minY, maxY] = visibleBounds(cw, ch);
   const anim = view.animFrame;
   const mode = view.overlay;
 
@@ -101,7 +168,7 @@ function renderWorld(ctx, S, view) {
       const t = S.type[i];
       // Multi-tile buildings are drawn once, when the loop reaches the
       // bottom corner of their footprint (correct painter order).
-      let sprite = null, ax = tx, ay = ty;
+      let sprite = null, ax = tx, ay = ty, anchIdx = i;
       const bHere = BLD[t];
       if (bHere && bHere.size > 1) {
         const a = S.anch[i];
@@ -111,20 +178,24 @@ function renderWorld(ctx, S, view) {
         ax = a % W; ay = (a / W) | 0;
         if (tx !== ax + bb.size - 1 || ty !== ay + bb.size - 1) continue;
         sprite = spriteForTile(S, a, anim);
+        anchIdx = a;
       } else {
         sprite = spriteForTile(S, i, anim);
       }
       if (!sprite) continue;
-      // sprite's footprint top corner maps to canvas (w/2, PAD)
+      // sprite's footprint top corner maps to canvas (w/2, PAD);
+      // sprites are baked at 2x, so draw at their logical size
       ctx.drawImage(sprite,
-        (ax - ay) * HALF_W - sprite.width / 2,
-        (ax + ay) * HALF_H - SPRITE_PAD_TOP);
+        (ax - ay) * HALF_W - sprite._w / 2,
+        (ax + ay) * HALF_H - SPRITE_PAD_TOP,
+        sprite._w, sprite._h);
 
       if (S.wireOn[i]) {
         const ws = wireOverlaySprite(S, i);
         ctx.drawImage(ws,
-          (tx - ty) * HALF_W - ws.width / 2,
-          (tx + ty) * HALF_H - SPRITE_PAD_TOP);
+          (tx - ty) * HALF_W - ws._w / 2,
+          (tx + ty) * HALF_H - SPRITE_PAD_TOP,
+          ws._w, ws._h);
       }
 
       // overlay tint
@@ -154,23 +225,24 @@ function renderWorld(ctx, S, view) {
       if (S.fire[i]) {
         const fs = getSprite('fire' + (anim & 1), 1, (c, o) => paintFire(c, o, anim & 1));
         const cx0 = (tx - ty) * HALF_W, cy0 = (tx + ty) * HALF_H;
-        ctx.drawImage(fs, cx0 - fs.width / 2, cy0 + TILE_H - fs.height);
+        ctx.drawImage(fs, cx0 - fs._w / 2, cy0 + TILE_H - fs._h, fs._w, fs._h);
       }
     }
   }
+  ctx.restore();
+}
 
-  // disasters (tornado / monster icons)
+// per-frame vector overlays: disasters, tool ghost, remote cursors
+function drawSceneOverlays(ctx, S, view) {
   for (const d of S.disasters) {
     const [sx, sy] = [(d.x - d.y) * HALF_W, (d.x + d.y) * HALF_H];
     ctx.font = '28px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(d.kind === DIS_TORNADO ? '🌪️' : '👾', sx, sy - 4 - (anim & 1) * 3);
+    ctx.fillText(d.kind === DIS_TORNADO ? '🌪️' : '👾', sx, sy - 4 - (view.animFrame & 1) * 3);
   }
 
-  // hover ghost / drag rect
   if (view.ghost) drawGhost(ctx, S, view.ghost);
 
-  // remote player cursors
   if (view.cursors) {
     for (const c of view.cursors) {
       const [sx, sy] = [(c.x - c.y) * HALF_W, (c.x + c.y) * HALF_H];
@@ -183,7 +255,6 @@ function renderWorld(ctx, S, view) {
       ctx.fillText(c.name, sx, sy - 6);
     }
   }
-  ctx.restore();
 }
 
 function drawGhost(ctx, S, g) {
@@ -226,6 +297,76 @@ function ghostTiles(g) {
     for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) out.push([xx, yy]);
   }
   return out;
+}
+
+/* ---------------- animated traffic ---------------- */
+const CAR_COLORS = ['#c94040', '#3a70b8', '#d8d8dc', '#3c3c42', '#d8a838', '#4a8a4a', '#b8b8c0', '#7a4a9a'];
+
+function drawCars(ctx, S, i, tx, ty, time) {
+  if (CAM.zoom < 0.5) return;
+  const x = tx, y = ty;
+  let mask = 0;
+  if (y > 0 && (S.type[i - W] === B_ROAD || S.type[i - W] === B_RAIL)) mask |= 1;
+  if (x < W - 1 && (S.type[i + 1] === B_ROAD || S.type[i + 1] === B_RAIL)) mask |= 2;
+  if (y < H - 1 && (S.type[i + W] === B_ROAD || S.type[i + W] === B_RAIL)) mask |= 4;
+  if (x > 0 && (S.type[i - 1] === B_ROAD || S.type[i - 1] === B_RAIL)) mask |= 8;
+  const axes = [];
+  if ((mask & 1) || (mask & 4) || mask === 0) axes.push('v');
+  if ((mask & 2) || (mask & 8)) axes.push('u');
+  const density = S.traffic[i];
+  const lanes = density > 55 ? [0.14, -0.14] : [density % 2 ? 0.14 : -0.14];
+  for (const axis of axes) {
+    for (const lane of lanes) {
+      const h = hash2(tx * 3 + (axis === 'u' ? 1 : 0), ty * 5 + lane * 10, 91);
+      // not every lane has a car every moment
+      if (h < 0.35) continue;
+      const speed = 0.00035 + h * 0.0002;
+      const dirSign = lane > 0 ? 1 : -1;
+      let p = ((time * speed + h * 7) % 1 + 1) % 1;
+      if (dirSign < 0) p = 1 - p;
+      let u, v, dux, dvy;
+      if (axis === 'v') { u = 0.5 + lane; v = p; dux = 0; dvy = dirSign; }
+      else { u = p; v = 0.5 + lane; dux = dirSign; dvy = 0; }
+      const wu = tx + u, wv = ty + v;
+      const sx = (wu - wv) * HALF_W, sy = (wu + wv) * HALF_H;
+      // screen direction of travel
+      const ddx = (dux - dvy) * HALF_W, ddy = (dux + dvy) * HALF_H;
+      const ang = Math.atan2(ddy, ddx);
+      ctx.save();
+      ctx.translate(sx, sy);
+      // shadow
+      ctx.fillStyle = 'rgba(10,14,10,0.3)';
+      ctx.beginPath(); ctx.ellipse(1, 1, 4.2, 1.8, ang, 0, 7); ctx.fill();
+      ctx.rotate(ang);
+      const col = CAR_COLORS[Math.floor(h * 23) % CAR_COLORS.length];
+      ctx.fillStyle = col;
+      ctx.fillRect(-3.6, -1.9, 7.2, 3.4);
+      ctx.fillStyle = 'rgba(20,30,40,0.85)'; // cabin
+      ctx.fillRect(-1.6, -1.5, 3.2, 2.6);
+      ctx.fillStyle = 'rgba(255,240,200,0.9)'; // headlights
+      ctx.fillRect(3.0, -1.6, 0.8, 1.1);
+      ctx.fillRect(3.0, 0.5, 0.8, 1.1);
+      ctx.restore();
+    }
+  }
+}
+
+/* ---------------- animated smoke ---------------- */
+function drawSmoke(ctx, ax, ay, spots, time, seedIdx) {
+  if (CAM.zoom < 0.4) return;
+  for (let s = 0; s < spots.length; s++) {
+    const [su, sv, z] = spots[s];
+    const wu = ax + su, wv = ay + sv;
+    const bx = (wu - wv) * HALF_W, by = (wu + wv) * HALF_H - z;
+    for (let k = 0; k < 3; k++) {
+      const ph = (((time / 2800) + k / 3 + hash2(seedIdx, k + s * 3, 77)) % 1 + 1) % 1;
+      const r = 2.2 + ph * 6.5;
+      const puffX = bx + ph * 11 + Math.sin(ph * 9 + k) * 1.5; // wind drift SE
+      const puffY = by - ph * 24;
+      ctx.fillStyle = `rgba(190,195,200,${(0.34 * (1 - ph)).toFixed(3)})`;
+      ctx.beginPath(); ctx.arc(puffX, puffY, r, 0, 7); ctx.fill();
+    }
+  }
 }
 
 /* ---------------- minimap ---------------- */

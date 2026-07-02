@@ -11,6 +11,7 @@ const GAME = {
   replaceState(newS) {
     this.S = newS;
     markPowerDirty();
+    window.__worldStamp = (window.__worldStamp || 0) + 1;
   },
   setSpeed(v, fromNet) {
     this.speed = v;
@@ -303,6 +304,7 @@ function frame(t) {
     overlay: UI.overlay,
     ghost,
     cursors,
+    time: t,
     shakeAmt: UI.shake > 0 ? UI.shake / 2 : 0,
   });
 
