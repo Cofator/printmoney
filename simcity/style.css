@@ -60,7 +60,9 @@ input, select {
 }
 
 /* ---------- canvas & HUD ---------- */
-#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+#game, #game3d { position: fixed; inset: 0; width: 100%; height: 100%; display: block; cursor: crosshair; }
+body.mode3d #game { display: none; }
+body:not(.mode3d) #game3d { display: none; }
 
 #topbar {
   position: fixed; top: 0; left: 0; right: 0; z-index: 10;

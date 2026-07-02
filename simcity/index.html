@@ -39,6 +39,7 @@
 
 <!-- ============ GAME ============ -->
 <canvas id="game"></canvas>
+<canvas id="game3d"></canvas>
 
 <div id="hud" style="display:none">
 
@@ -60,6 +61,8 @@
     <button class="spd" data-v="1" title="Normal speed">▶</button>
     <button class="spd" data-v="2" title="Fast">▶▶</button>
     <button class="spd" data-v="4" title="Fastest">▶▶▶</button>
+    <span class="sep"></span>
+    <button id="btnView" title="Toggle 3D / 2D view">🧊 3D</button>
     <span class="sep"></span>
     <button id="btnBudget">💰 Budget</button>
     <button id="btnCharts">📈 Charts</button>
@@ -218,19 +221,21 @@
     <h2>❓ How to play</h2>
     <ul class="help">
       <li><b>Goal:</b> grow a thriving city. Zone land, provide power, water and services, and keep the budget positive.</li>
-      <li><b>Camera:</b> right/middle-drag to pan · mouse wheel to zoom · arrow keys · click the minimap.</li>
+      <li><b>Camera (3D):</b> right-drag to pan · <b>Shift+right-drag to rotate/tilt</b> · Q/E rotate · wheel zoom · click the minimap. Toggle the classic 2D view with the 🧊/🗺️ button.</li>
+      <li><b>Camera (2D):</b> right/middle-drag to pan · mouse wheel to zoom · arrow keys.</li>
       <li><b>Build:</b> pick a tool on the left, click (or drag) on the map. Bulldoze mistakes with 🚜 (B).</li>
       <li><b>Zones</b> (R/C/I) need <b>power</b> (connect with ⚡ lines to a plant) and a <b>road within 4 tiles</b> to develop. Water coverage (💧 pumps/towers) unlocks high density.</li>
       <li><b>Residents</b> need jobs (C/I), low pollution and low crime. Services (police, fire, health, schools) raise land value and safety — but cost money monthly.</li>
       <li><b>Budget:</b> set taxes ~7%. Too high kills demand; too low bankrupts you. Bonds give quick cash at 6% interest.</li>
       <li><b>Disasters:</b> fires spread — build fire stations. Or unleash a monster on a friend's city 😈.</li>
       <li><b>Multiplayer:</b> 🌐 → Create room → share the link. Everyone builds on the same city with a shared treasury.</li>
-      <li><b>Hotkeys:</b> Q inspect · B bulldoze · R road · P power line · T trees · 1/2/3 zones · Space pause · +/- zoom.</li>
+      <li><b>Hotkeys:</b> I inspect · B bulldoze · R road · P power line · T trees · 1/2/3 zones · Space pause · +/- zoom · Q/E rotate (3D).</li>
     </ul>
   </div>
 </div>
 
 <script src="vendor/peerjs.min.js"></script>
+<script src="vendor/three.min.js"></script>
 <script src="js/util.js"></script>
 <script src="js/data.js"></script>
 <script src="js/map.js"></script>
@@ -238,6 +243,7 @@
 <script src="js/sim.js"></script>
 <script src="js/sprites.js"></script>
 <script src="js/render.js"></script>
+<script src="js/render3d.js"></script>
 <script src="js/net.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>

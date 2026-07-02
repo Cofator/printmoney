@@ -409,11 +409,16 @@ function renderMinimap(cv, S, mode) {
   ctx.clearRect(0, 0, cv.width, cv.height);
   ctx.drawImage(off, 0, 0, cv.width, cv.height);
   // viewport rectangle
-  const mainCv = document.getElementById('game');
-  const a = screenToWorld(0, 0), bpt = screenToWorld(mainCv.width, mainCv.height);
   const sx = cv.width / W, sy = cv.height / H;
   ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
-  ctx.strokeRect(
-    Math.min(a[0], bpt[0]) * sx, Math.min(a[1], bpt[1]) * sy,
-    Math.abs(bpt[0] - a[0]) * sx, Math.abs(bpt[1] - a[1]) * sy);
+  if (typeof GAME !== 'undefined' && GAME.mode3d && typeof R3D !== 'undefined') {
+    const ext = R3D.dist * 0.75;
+    ctx.strokeRect((R3D.target.x - ext / 2) * sx, (R3D.target.z - ext / 2) * sy, ext * sx, ext * sy);
+  } else {
+    const mainCv = document.getElementById('game');
+    const a = screenToWorld(0, 0), bpt = screenToWorld(mainCv.width, mainCv.height);
+    ctx.strokeRect(
+      Math.min(a[0], bpt[0]) * sx, Math.min(a[1], bpt[1]) * sy,
+      Math.abs(bpt[0] - a[0]) * sx, Math.abs(bpt[1] - a[1]) * sy);
+  }
 }
