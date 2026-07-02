@@ -3,7 +3,7 @@
 A **SimCity 2000–style city builder** that runs entirely in the browser — no install,
 no accounts, no dedicated server — with **online co-op multiplayer**.
 
-**Play it here:** https://cofator.github.io/printmoney/
+**Play it here:** https://cofator.github.io/printmoney/simcity/
 
 ## Features
 
