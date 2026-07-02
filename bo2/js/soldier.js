@@ -2,6 +2,8 @@
 import * as THREE from 'three';
 import { G, me, lerp, clamp } from './state.js';
 import { collideMove } from './player.js';
+import { ASSETS } from './assets.js';
+import { clone as skeletonClone } from '../vendor/utils/SkeletonUtils.js';
 
 export const TEAM_COLORS = { alpha: 0x2f7fd0, bravo: 0xd08a2f };
 export const BOT_NAMES = ['Mason', 'Harper', 'Section', 'Salazar', 'Farid', 'Menendez', 'DeFalco', 'Briggs', 'Zhao', 'Karma'];
@@ -62,9 +64,13 @@ export class Soldier {
     this.gun.position.set(0.2, 1.15, -0.35);
     this.tag = nameSprite(name, '#' + color.toString(16).padStart(6, '0'));
 
-    this.group.add(this.torso, this.vest, this.belt, this.head, this.visor, this.helmet,
-      this.legL, this.legR, this.bootL, this.bootR, this.armL, this.armR, this.gun, this.tag);
+    this.boxParts = [this.torso, this.vest, this.belt, this.head, this.visor, this.helmet,
+      this.legL, this.legR, this.bootL, this.bootR, this.armL, this.armR];
+    this.group.add(...this.boxParts, this.gun, this.tag);
     this.group.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    this.team = team;
+    this.model = null; this.mixer = null; this.actions = null;
+    this.tryAttachModel();
     // partes atingíveis por tiros
     for (const part of [this.torso, this.legL, this.legR, this.armL, this.armR]) {
       part.userData = { pid: id, head: false };
@@ -80,6 +86,35 @@ export class Soldier {
     this.moving = false; this.crouch = false;
     this.deadT = 0;
     G.scene.add(this.group);
+  }
+
+  // troca as caixas pelo modelo glTF animado assim que o asset carregar
+  tryAttachModel() {
+    if (this.model || !ASSETS.soldier) return;
+    const src = ASSETS.soldier;
+    const model = skeletonClone(src.scene);
+    // alinhamento: a frente do modelo precisa coincidir com o -z do jogo
+    model.rotation.y = 0;
+    const tint = this.team === 'alpha' ? new THREE.Color(0.45, 0.62, 1.5) : new THREE.Color(1.5, 0.75, 0.3);
+    model.traverse(o => {
+      if (o.isMesh || o.isSkinnedMesh) {
+        o.castShadow = true;
+        o.frustumCulled = false; // esqueleto animado: evita sumir em ângulos rasos
+        o.material = o.material.clone();
+        o.material.color.multiply(tint);
+      }
+    });
+    this.group.add(model);
+    this.model = model;
+    this.mixer = new THREE.AnimationMixer(model);
+    this.actions = {};
+    for (const clip of src.animations) this.actions[clip.name] = this.mixer.clipAction(clip);
+    this.actions.Idle?.play();
+    this.animState = 'Idle';
+    // as caixas viram apenas hitboxes invisíveis
+    for (const part of this.boxParts) part.visible = false;
+    this.gun.position.set(0.12, 1.32, -0.28);
+    this.gun.rotation.x = 0.12;
   }
 
   setNetTarget(s) { this.net = s; }
@@ -104,12 +139,25 @@ export class Soldier {
     }
     this.group.position.copy(this.pos);
     this.group.rotation.y = this.yaw;
-    // animação de pernas
-    this.animT += dt * (this.moving ? 10 : 0);
-    const sw = this.moving ? Math.sin(this.animT) * 0.5 : 0;
-    this.legL.rotation.x = sw;
-    this.legR.rotation.x = -sw;
-    this.armL.rotation.x = -sw * 0.6;
+    this.tryAttachModel();
+    if (this.mixer) {
+      // troca suave entre parado/correndo
+      const want = this.moving ? 'Run' : 'Idle';
+      if (this.animState !== want && this.actions[want]) {
+        const from = this.actions[this.animState], to = this.actions[want];
+        to.reset().play();
+        if (from) from.crossFadeTo(to, 0.22, false);
+        this.animState = want;
+      }
+      this.mixer.update(dt);
+    } else {
+      // fallback: animação de pernas das caixas
+      this.animT += dt * (this.moving ? 10 : 0);
+      const sw = this.moving ? Math.sin(this.animT) * 0.5 : 0;
+      this.legL.rotation.x = sw;
+      this.legR.rotation.x = -sw;
+      this.armL.rotation.x = -sw * 0.6;
+    }
     // agachar
     const squash = this.crouch ? 0.72 : 1;
     this.group.scale.y = lerp(this.group.scale.y, squash, Math.min(1, dt * 8));
