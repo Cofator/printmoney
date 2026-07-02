@@ -7,7 +7,10 @@ import { Soldier, Bot, BOT_NAMES } from './soldier.js';
 import { WEAPONS, CLASSES, STREAKS } from './weapons.js';
 import { Net, randomCode } from './net.js';
 import { initAudio, sfx } from './audio.js';
+import { preloadAssets } from './assets.js';
 import * as UI from './ui.js';
+
+preloadAssets();
 
 // ---------------- setup básico ----------------
 const canvas = document.getElementById('c');

@@ -78,34 +78,20 @@ export class LocalPlayer {
   // ---------- viewmodel ----------
   buildViewmodel() {
     const g = new THREE.Group();
-    const metal = (c, extra = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.45, metalness: 0.55, ...extra });
-    const poly  = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 });
-    this.vmBody   = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.13, 0.5), metal(0x2a2d33));
-    this.vmBarrel = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.045, 0.3), metal(0x1a1c20));
-    this.vmMag    = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.1), metal(0x3a3e46));
-    this.vmSight  = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.06, 0.12), metal(0x14161a));
-    this.vmStock  = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.1, 0.16), poly(0x33363c));
-    this.vmGrip   = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.12, 0.06), poly(0x26282e));
-    this.vmFore   = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.08, 0.18), poly(0x33363c));
-    this.vmBarrel.position.set(0, 0.02, -0.38);
-    this.vmMag.position.set(0, -0.13, -0.05);
-    this.vmSight.position.set(0, 0.095, -0.1);
-    this.vmStock.position.set(0, -0.02, 0.3);
-    this.vmGrip.position.set(0, -0.11, 0.12);
-    this.vmGrip.rotation.x = 0.3;
-    this.vmFore.position.set(0, -0.01, -0.24);
+    const poly = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 });
     // braços e mãos
     const sleeve = poly(0x4a5240), skin = poly(0xc9a07a);
     this.armR = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.085, 0.4), sleeve);
     this.armR.position.set(0.05, -0.15, 0.28);
     this.armR.rotation.x = 0.5;
     this.handR = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.09, 0.09), skin);
-    this.handR.position.set(0, -0.11, 0.13);
+    this.handR.position.set(0, -0.11, 0.1);
     this.armL = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.085, 0.34), sleeve);
     this.armL.position.set(-0.09, -0.16, -0.1);
     this.armL.rotation.set(0.35, -0.5, 0);
     this.handL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.1), skin);
-    this.handL.position.set(0, -0.05, -0.24);
+    // grupo da arma (reconstruído a cada troca)
+    this.gunG = new THREE.Group();
     // textura radial de clarão (estrela suave, não um quadrado)
     const fcv = document.createElement('canvas');
     fcv.width = fcv.height = 64;
@@ -120,26 +106,103 @@ export class LocalPlayer {
       new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(fcv), transparent: true, opacity: 0, depthWrite: false })
     );
     this.flash.position.set(0, 0.02, -0.56);
-    g.add(this.vmBody, this.vmBarrel, this.vmMag, this.vmSight, this.vmStock, this.vmGrip,
-      this.vmFore, this.armR, this.handR, this.armL, this.handL, this.flash);
+    g.add(this.gunG, this.armR, this.handR, this.armL, this.handL, this.flash);
     g.position.set(0.24, -0.22, -0.42);
     this.vm = g;
     this.cam.add(g);
   }
 
+  // constrói o modelo da arma atual (origem no punho, cano para -z)
+  buildGun(key) {
+    const METAL = new THREE.MeshStandardMaterial({ color: 0x1c1e22, roughness: 0.35, metalness: 0.7 });
+    const POLY  = new THREE.MeshStandardMaterial({ color: 0x2e3238, roughness: 0.8, metalness: 0.1 });
+    const TAN   = new THREE.MeshStandardMaterial({ color: 0x9a8a68, roughness: 0.7, metalness: 0.1 });
+    const WOOD  = new THREE.MeshStandardMaterial({ color: 0x6a4a2c, roughness: 0.75 });
+    const GLASS = new THREE.MeshStandardMaterial({ color: 0x3a78c8, roughness: 0.1, metalness: 0.6 });
+    const G2 = new THREE.Group();
+    const b = (w, h, d, x, y, z, m = METAL, rx = 0, rz = 0) => {
+      const mm = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+      mm.position.set(x, y, z); mm.rotation.x = rx; mm.rotation.z = rz;
+      G2.add(mm); return mm;
+    };
+    const cyl = (r, l, x, y, z, m = METAL) => {
+      const mm = new THREE.Mesh(new THREE.CylinderGeometry(r, r, l, 12), m);
+      mm.rotation.x = Math.PI / 2;
+      mm.position.set(x, y, z);
+      G2.add(mm); return mm;
+    };
+    let muzzleZ = -0.6, handL = { x: 0, y: -0.06, z: -0.26 };
+    if (key === 'm8a1') {              // bullpup futurista
+      b(0.085, 0.13, 0.5, 0, 0, -0.05, POLY);
+      b(0.08, 0.1, 0.2, 0, 0.005, 0.22, POLY);
+      b(0.055, 0.17, 0.09, 0, -0.11, 0.17, METAL, 0.15);   // carregador atrás do punho
+      cyl(0.02, 0.3, 0, 0.01, -0.42);
+      b(0.05, 0.05, 0.07, 0, 0.01, -0.58);                 // quebra-chama
+      b(0.075, 0.09, 0.22, 0, -0.005, -0.26, POLY);        // guarda-mão
+      b(0.02, 0.035, 0.34, 0, 0.085, -0.08);               // trilho
+      b(0.032, 0.05, 0.03, 0, 0.115, 0.04);                // alça de mira
+      b(0.012, 0.05, 0.012, 0, 0.115, -0.24);              // maça de mira
+      b(0.045, 0.11, 0.055, 0, -0.1, 0.05, POLY, 0.3);     // punho
+      muzzleZ = -0.62;
+    } else if (key === 'pdw57') {      // estilo P90
+      b(0.095, 0.15, 0.42, 0, -0.01, -0.02, POLY);
+      b(0.06, 0.05, 0.3, 0, 0.08, -0.02, METAL);           // carregador em cima
+      cyl(0.018, 0.12, 0, 0.02, -0.3);
+      b(0.02, 0.045, 0.14, 0, 0.125, 0.0);                 // mira
+      b(0.05, 0.1, 0.06, 0, -0.115, 0.07, POLY, 0.25);     // punho
+      b(0.05, 0.09, 0.05, 0, -0.11, -0.12, POLY);          // apoio frontal
+      muzzleZ = -0.38; handL = { x: 0, y: -0.09, z: -0.13 };
+    } else if (key === 'dsr50') {      // sniper de ferrolho
+      b(0.075, 0.11, 0.45, 0, 0, -0.02, TAN);
+      cyl(0.018, 0.5, 0, 0.015, -0.48);
+      b(0.052, 0.052, 0.1, 0, 0.015, -0.75);               // quebra-chama
+      b(0.07, 0.12, 0.22, 0, -0.01, 0.22, TAN);            // coronha
+      b(0.06, 0.045, 0.14, 0, 0.075, 0.2, TAN);            // apoio de face
+      cyl(0.034, 0.22, 0, 0.12, -0.03);                    // luneta
+      const lens = cyl(0.03, 0.008, 0, 0.12, -0.142, GLASS);
+      lens.rotation.x = Math.PI / 2;
+      b(0.02, 0.05, 0.03, 0, 0.085, 0.03);                 // suporte da luneta
+      b(0.02, 0.05, 0.03, 0, 0.085, -0.09);
+      b(0.07, 0.02, 0.02, 0.05, 0.035, 0.08);              // ferrolho
+      b(0.012, 0.16, 0.012, -0.04, -0.1, -0.55, METAL, 0, 0.35);  // bipé
+      b(0.012, 0.16, 0.012, 0.04, -0.1, -0.55, METAL, 0, -0.35);
+      muzzleZ = -0.8; handL = { x: 0, y: -0.05, z: -0.3 };
+    } else if (key === 'r870') {       // escopeta de repetição
+      b(0.07, 0.11, 0.28, 0, 0, 0.02);
+      cyl(0.016, 0.42, 0, 0.03, -0.4);
+      cyl(0.014, 0.34, 0, -0.025, -0.36);                  // tubo de munição
+      b(0.055, 0.06, 0.15, 0, -0.025, -0.3, WOOD);         // bomba (pump)
+      b(0.065, 0.11, 0.24, 0, -0.015, 0.25, WOOD, 0.08);   // coronha
+      b(0.012, 0.022, 0.012, 0, 0.075, -0.58);             // massa de mira
+      muzzleZ = -0.63; handL = { x: 0, y: -0.03, z: -0.3 };
+    } else {                            // five-seven (pistola)
+      b(0.045, 0.06, 0.24, 0, 0.03, -0.06, METAL);
+      b(0.042, 0.05, 0.2, 0, -0.02, -0.04, POLY);
+      b(0.04, 0.12, 0.06, 0, -0.1, 0.05, POLY, 0.25);
+      b(0.01, 0.02, 0.02, 0, 0.07, 0.04);
+      b(0.01, 0.02, 0.01, 0, 0.07, -0.16);
+      muzzleZ = -0.22; handL = null;
+    }
+    return { group: G2, muzzleZ, handL };
+  }
+
   refreshViewmodel() {
-    const key = this.cur.key;
-    const scale = { m8a1: 1, pdw57: 0.85, dsr50: 1.35, r870: 1.15, fiveseven: 0.6 }[key] || 1;
-    const pistol = key === 'fiveseven';
-    this.vmBody.scale.set(1, 1, scale);
-    this.vmBarrel.position.z = -0.28 - 0.14 * scale;
-    this.flash.position.z = -0.4 - 0.16 * scale;
-    this.vmStock.visible = !pistol;
-    this.vmFore.visible = !pistol;
-    this.armL.visible = !pistol;
-    this.handL.visible = !pistol;
-    this.vmFore.position.z = -0.1 - 0.14 * scale;
-    this.handL.position.z = -0.1 - 0.14 * scale;
+    // remove a arma anterior e monta a nova
+    while (this.gunG.children.length) {
+      const c = this.gunG.children.pop();
+      this.gunG.remove(c);
+      c.geometry?.dispose();
+    }
+    const { group, muzzleZ, handL } = this.buildGun(this.cur.key);
+    this.gunG.add(group);
+    this.flash.position.z = muzzleZ;
+    const two = !!handL;
+    this.armL.visible = two;
+    this.handL.visible = two;
+    if (two) {
+      this.handL.position.set(handL.x, handL.y, handL.z);
+      this.armL.position.set(handL.x - 0.09, handL.y - 0.1, handL.z + 0.14);
+    }
   }
 
   // ---------- input ----------
@@ -368,11 +431,13 @@ export class LocalPlayer {
     this.cam.updateProjectionMatrix();
     this.recoilK = lerp(this.recoilK, 0, Math.min(1, dt * 10));
     const sprintTilt = this.sprinting ? 0.5 : 0;
+    // recarga: arma mergulha e inclina
+    const rl = this.reloading > 0 ? Math.sin(Math.min(1, 1 - this.reloading / this.w.reloadTime) * Math.PI) : 0;
     const vmx = lerp(0.24, 0, this.adsLerp);
-    const vmy = lerp(-0.22, -0.166, this.adsLerp) + bob * 0.6;
+    const vmy = lerp(-0.22, -0.166, this.adsLerp) + bob * 0.6 - rl * 0.12;
     const vmz = lerp(-0.42, -0.3, this.adsLerp) + this.recoilK;
     this.vm.position.set(vmx, vmy, vmz);
-    this.vm.rotation.set(this.recoilK * 1.4 + sprintTilt * 0.4, sprintTilt, 0);
+    this.vm.rotation.set(this.recoilK * 1.4 + sprintTilt * 0.4 - rl * 0.5, sprintTilt, rl * 0.3);
     // sniper: esconde arma no scope
     const scoped = this.w.sniper && this.adsLerp > 0.7;
     this.vm.visible = !scoped;
