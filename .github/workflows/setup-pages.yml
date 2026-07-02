@@ -44,6 +44,21 @@ jobs:
           code=$(api -X POST "https://api.github.com/repos/$REPO/pages/builds")
           echo "POST /pages/builds -> $code"
 
+      - name: Diagnóstico do build do Pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          for i in $(seq 1 12); do
+            sleep 10
+            status=$(curl -s -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+              "https://api.github.com/repos/$REPO/pages/builds/latest")
+            echo "=== tentativa $i ==="
+            echo "$status" | python3 -c "import json,sys; d=json.load(sys.stdin); print('status:', d.get('status')); print('error:', d.get('error')); print('commit:', d.get('commit'))"
+            st=$(echo "$status" | python3 -c "import json,sys; print(json.load(sys.stdin).get('status'))")
+            if [ "$st" = "built" ] || [ "$st" = "errored" ]; then break; fi
+          done
+
       - name: Esperar o site responder em /bo2/
         run: |
           url="https://cofator.github.io/printmoney/bo2/"
