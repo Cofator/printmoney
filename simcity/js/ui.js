@@ -359,6 +359,7 @@ function initUI(G) {
   document.querySelectorAll('.modal .close').forEach(b => b.onclick = closeModals);
   document.querySelectorAll('.modal').forEach(m => m.addEventListener('mousedown', (e) => { if (e.target === m) closeModals(); }));
 
+  $('btnView').onclick = () => setViewMode(!G.mode3d);
   $('btnBudget').onclick = () => { refreshBudget(G.S); openModal('modal-budget'); };
   $('btnCharts').onclick = () => { drawCharts(G.S); openModal('modal-charts'); };
   $('btnDisasters').onclick = () => openModal('modal-disasters');
@@ -386,9 +387,7 @@ function initUI(G) {
     const r = mm.getBoundingClientRect();
     const wx = (e.clientX - r.left) / r.width * W;
     const wy = (e.clientY - r.top) / r.height * H;
-    const cv = $('game');
-    CAM.x = cv.width / (2 * CAM.zoom) - (wx - wy) * HALF_W;
-    CAM.y = cv.height / (2 * CAM.zoom) - (wx + wy) * HALF_H;
+    centerOnTile(wx, wy);
   };
   mm.addEventListener('mousedown', (e) => {
     mmMove(e);

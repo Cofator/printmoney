@@ -52,7 +52,7 @@ const DOZE_COST = 5, TREE_COST = 10, WATER_COST = 100, LAND_COST = 100;
 // Toolbar layout: groups of [toolId, label, hotkey]
 const TOOL_GROUPS = [
   { name: 'Tools', items: [
-    [TOOL_INSPECT, 'Inspect', 'Q'],
+    [TOOL_INSPECT, 'Inspect', 'I'],
     [TOOL_DOZE, 'Bulldoze', 'B'],
   ]},
   { name: 'Terrain', items: [
