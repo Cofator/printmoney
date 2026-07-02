@@ -11,9 +11,14 @@ import * as UI from './ui.js';
 
 // ---------------- setup básico ----------------
 const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.15;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 400);
 scene.add(camera);
@@ -349,6 +354,47 @@ function explodeNade(g) {
 }
 
 // ---------------- efeitos visuais ----------------
+// textura de partícula (círculo suave) compartilhada
+const particleTex = (() => {
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 64;
+  const c = cv.getContext('2d');
+  const g = c.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, 'rgba(255,255,255,1)');
+  g.addColorStop(0.4, 'rgba(255,255,255,0.7)');
+  g.addColorStop(1, 'rgba(255,255,255,0)');
+  c.fillStyle = g; c.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(cv);
+})();
+
+const particles = [];
+function spawnParticles(pos, { count = 6, colors = [0xcccccc], speed = 3, life = 0.5, size = 0.12, gravity = 8, up = 1.5, fade = true } = {}) {
+  for (let i = 0; i < count; i++) {
+    const mat = new THREE.SpriteMaterial({
+      map: particleTex, transparent: true, depthWrite: false,
+      color: colors[Math.floor(Math.random() * colors.length)],
+    });
+    const sp = new THREE.Sprite(mat);
+    sp.position.copy(pos);
+    const s = size * (0.6 + Math.random() * 0.8);
+    sp.scale.set(s, s, 1);
+    scene.add(sp);
+    particles.push({
+      obj: sp,
+      vel: new THREE.Vector3((Math.random() - 0.5) * speed * 2, Math.random() * speed * up * 0.7 + speed * 0.2, (Math.random() - 0.5) * speed * 2),
+      ttl: life * (0.6 + Math.random() * 0.8), max: life, gravity, fade,
+    });
+  }
+}
+
+// luz de tiro/explosão compartilhada
+const flashLight = new THREE.PointLight(0xffc878, 0, 22, 2);
+scene.add(flashLight);
+function flashAt(pos, intensity = 8) {
+  flashLight.position.copy(pos);
+  flashLight.intensity = intensity;
+}
+
 function spawnTracer(from, to, hitPlayer) {
   const geo = new THREE.BufferGeometry().setFromPoints([from.clone(), to.clone()]);
   const mat = new THREE.LineBasicMaterial({ color: hitPlayer ? 0xffb060 : 0xffe9a0, transparent: true, opacity: 0.65 });
@@ -358,18 +404,26 @@ function spawnTracer(from, to, hitPlayer) {
 }
 
 function spawnImpact(point, normal) {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(0.045, 6, 6), new THREE.MeshBasicMaterial({ color: 0xcccccc, transparent: true }));
-  m.position.copy(point);
-  if (normal) m.position.addScaledVector(normal, 0.03);
-  scene.add(m);
-  effects.push({ obj: m, ttl: 0.25, max: 0.25 });
+  // poeira/estilhaços no ponto de impacto
+  const p = point.clone();
+  if (normal) p.addScaledVector(normal, 0.04);
+  spawnParticles(p, { count: 5, colors: [0xbbb5aa, 0x8d867c, 0xd8d2c4], speed: 1.6, life: 0.35, size: 0.09, gravity: 5 });
+}
+
+function spawnBlood(point) {
+  spawnParticles(point, { count: 7, colors: [0xa01818, 0x780f0f, 0xc22222], speed: 2.2, life: 0.45, size: 0.11, gravity: 10 });
 }
 
 function spawnExplosionFx(pos) {
-  const m = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffaa33, transparent: true, opacity: 0.9 }));
+  // bola de fogo
+  const m = new THREE.Mesh(new THREE.SphereGeometry(0.5, 12, 12), new THREE.MeshBasicMaterial({ color: 0xffaa33, transparent: true, opacity: 0.95 }));
   m.position.copy(pos);
   scene.add(m);
   effects.push({ obj: m, ttl: 0.45, max: 0.45, grow: 9 });
+  // faíscas e fumaça
+  spawnParticles(pos, { count: 16, colors: [0xffb040, 0xff7820, 0xffe080], speed: 7, life: 0.5, size: 0.2, gravity: 9 });
+  spawnParticles(pos.clone().add(new THREE.Vector3(0, 0.6, 0)), { count: 10, colors: [0x555555, 0x777777, 0x3a3a3a], speed: 1.6, life: 1.4, size: 0.6, gravity: -1.2 });
+  flashAt(pos.clone().add(new THREE.Vector3(0, 1, 0)), 30);
 }
 
 function spawnMuzzle(soldier) {
@@ -378,6 +432,7 @@ function spawnMuzzle(soldier) {
   m.position.copy(p);
   scene.add(m);
   effects.push({ obj: m, ttl: 0.05, max: 0.05 });
+  flashAt(p, 5);
 }
 
 function updateEffects(dt) {
@@ -393,6 +448,20 @@ function updateEffects(dt) {
       effects.splice(i, 1);
     }
   }
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.ttl -= dt;
+    p.vel.y -= p.gravity * dt;
+    p.obj.position.addScaledVector(p.vel, dt);
+    if (p.obj.position.y < 0.02) { p.obj.position.y = 0.02; p.vel.set(p.vel.x * 0.5, 0, p.vel.z * 0.5); }
+    if (p.fade) p.obj.material.opacity = Math.max(0, p.ttl / p.max);
+    if (p.ttl <= 0) {
+      scene.remove(p.obj);
+      p.obj.material.dispose();
+      particles.splice(i, 1);
+    }
+  }
+  flashLight.intensity = Math.max(0, flashLight.intensity - dt * 90);
 }
 
 // ---------------- hooks ----------------
@@ -400,11 +469,16 @@ G.hooks.applyDamage = applyDamage;
 G.hooks.registerHit = registerHit;
 G.hooks.spawnTracer = spawnTracer;
 G.hooks.spawnImpact = spawnImpact;
+G.hooks.spawnBlood = spawnBlood;
+G.hooks.muzzleFlash = flashAt;
 G.hooks.throwNade = throwNade;
 G.hooks.setScope = UI.setScope;
 G.hooks.shotFired = (wkey) => {
   const my = me();
   if (my) my.lastShotAt = G.now;
+  // clarão do disparo local
+  const dir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.getWorldQuaternion(new THREE.Quaternion()));
+  flashAt(camera.getWorldPosition(new THREE.Vector3()).addScaledVector(dir, 1.2), 6);
   if (G.online) {
     const m = { t: 'fx', kind: 'shot', id: G.myId, w: wkey };
     G.isHost ? G.net.broadcast(m) : G.net.send(m);
@@ -807,3 +881,6 @@ function tick() {
 
 UI.showScreen('menu');
 tick();
+
+// handle de depuração (usado pelos testes automatizados)
+window.BOWS2 = { G, player, camera, renderer };
