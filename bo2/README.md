@@ -9,7 +9,7 @@ Sem instalação, sem servidor próprio — o multiplayer usa WebRTC peer-to-pee
 **Online (endereço público):** após o deploy do GitHub Pages, o jogo fica em
 `https://<usuario>.github.io/<repo>/` (ex.: `https://cofator.github.io/printmoney/`).
 
-**Local:** `cd game && python3 -m http.server 8080` e abra `http://localhost:8080`.
+**Local:** `cd bo2 && python3 -m http.server 8080` e abra `http://localhost:8080`.
 
 ## 🌐 Multiplayer em rede
 

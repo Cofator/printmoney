@@ -1,0 +1,46 @@
+name: Deploy BO2 game to GitHub Pages
+
+# Publica o FPS (pasta bo2/) no GitHub Pages em /bo2/, preservando o restante
+# do site (branch gh-pages). URL final:
+# https://cofator.github.io/printmoney/bo2/
+#
+# Nenhum servidor é necessário: o Pages hospeda os arquivos estáticos e o
+# multiplayer usa WebRTC peer-to-peer (broker público do PeerJS).
+
+on:
+  push:
+    branches:
+      - claude/cod-black-ops-2-clone-xivloi
+      - claude/moneyprinterturbo-setup-o75fk7
+      - main
+      - master
+    paths:
+      - 'bo2/**'
+      - '.github/workflows/deploy-bo2.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-game
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Publish bo2/ to gh-pages under /bo2
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./bo2
+          publish_branch: gh-pages
+          destination_dir: bo2
+          keep_files: true
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy Black Ops Web II to GitHub Pages (/bo2)'
