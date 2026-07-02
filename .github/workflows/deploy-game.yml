@@ -1,0 +1,46 @@
+name: Deploy Game to GitHub Pages
+
+# Publica o jogo (pasta game/) numa SUBPASTA do branch gh-pages (aoe4/), que é um
+# hub multi-jogos. keep_files:true preserva os outros jogos (simcity/, bo2/) e o
+# index.html do hub. O jogo fica em https://cofator.github.io/printmoney/aoe4/
+#
+# Nenhum servidor é necessário: o Pages hospeda os arquivos estáticos e o
+# multiplayer usa WebRTC peer-to-peer (broker público do PeerJS).
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - claude/aoe4-game-clone-lhgvxu
+      - claude/moneyprinterturbo-setup-o75fk7
+    paths:
+      - 'game/**'
+      - '.github/workflows/deploy-game.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-game
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Publish game/ to gh-pages (subpasta aoe4/)
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./game
+          publish_branch: gh-pages
+          destination_dir: aoe4
+          keep_files: true   # não apaga simcity/, bo2/ nem o hub
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy Age of Empire clone to gh-pages/aoe4'
