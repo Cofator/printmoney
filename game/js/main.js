@@ -56,6 +56,9 @@ class GameSession {
     // centraliza no próprio Centro Urbano
     setTimeout(() => this.input.centerOnTC(), 50);
     this.hud.refreshSelection();
+    // dica inicial de controles
+    setTimeout(() => this.hud.toast('💡 Clique nos aldeões, depois botão DIREITO em árvores/ouro para coletar. WASD move a câmera.'), 700);
+    setTimeout(() => this.hud.toast('🏠 Selecione um aldeão e use o painel inferior para construir.'), 4200);
 
     // rede: host envia init e escuta comandos do convidado
     if (this.mode === 'host' && this.net) {
@@ -255,9 +258,6 @@ $('btn-copy').onclick = () => {
 };
 $('join-code').addEventListener('keydown', (e) => { if (e.key === 'Enter') doJoin(); });
 
-// checa suporte a PeerJS
-if (typeof window.Peer === 'undefined') {
-  $('btn-host').disabled = true; $('btn-join').disabled = true;
-}
-
+// sinaliza que o menu inicializou (o watchdog no index.html usa isto)
+window.__menuReady = true;
 console.log('Age of Empire Clone — pronto. Boa sorte, comandante!');

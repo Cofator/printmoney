@@ -3,6 +3,32 @@
 const PREFIX = 'aoe4clone-';
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+// Carrega a biblioteca PeerJS sob demanda (não bloqueia o jogo de 1 jogador).
+let peerLoading = null;
+const PEER_CDNS = [
+  'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js',
+  'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js',
+];
+export function ensurePeer() {
+  if (typeof window.Peer !== 'undefined') return Promise.resolve();
+  if (peerLoading) return peerLoading;
+  peerLoading = new Promise((resolve, reject) => {
+    let i = 0;
+    const tryNext = () => {
+      if (typeof window.Peer !== 'undefined') return resolve();
+      if (i >= PEER_CDNS.length) return reject(new Error('Não foi possível carregar a biblioteca de rede (PeerJS). Verifique sua conexão.'));
+      const s = document.createElement('script');
+      s.src = PEER_CDNS[i++];
+      s.onload = () => resolve();
+      s.onerror = () => tryNext();
+      document.head.appendChild(s);
+    };
+    tryNext();
+  });
+  return peerLoading;
+}
+
 function randomCode(len = 6) {
   let s = '';
   for (let i = 0; i < len; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
@@ -15,7 +41,8 @@ export class NetHost {
     this.onGuestJoin = null; this.onCommand = null; this.onGuestLeft = null;
     this.connected = false;
   }
-  start() {
+  async start() {
+    await ensurePeer();
     return new Promise((resolve, reject) => {
       this.code = randomCode();
       this.peer = new Peer(PREFIX + this.code, { debug: 1 });
@@ -47,7 +74,8 @@ export class NetGuest {
     this.peer = null; this.conn = null;
     this.onInit = null; this.onSnapshot = null; this.onEvent = null; this.onClose = null;
   }
-  join(code) {
+  async join(code) {
+    await ensurePeer();
     return new Promise((resolve, reject) => {
       this.peer = new Peer({ debug: 1 });
       let done = false;

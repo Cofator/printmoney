@@ -122,7 +122,30 @@
   </div>
 </div>
 
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<!-- Watchdog: se o módulo falhar ao carregar, mostra mensagem em vez de tela travada -->
+<div id="fatal" class="fatal hidden">
+  <div class="fatal-box">
+    <h2>⚠️ Erro ao carregar o jogo</h2>
+    <p id="fatal-msg"></p>
+    <button onclick="location.reload()" class="btn btn-primary">Recarregar</button>
+  </div>
+</div>
+<script>
+  window.addEventListener('error', function (e) {
+    if (e && e.message && !window.__menuReady) {
+      var f = document.getElementById('fatal'); if (f) f.classList.remove('hidden');
+      var m = document.getElementById('fatal-msg'); if (m) m.textContent = e.message;
+    }
+  });
+  // PeerJS é carregado sob demanda (não bloqueia o carregamento do jogo).
+  setTimeout(function () {
+    if (!window.__menuReady) {
+      var f = document.getElementById('fatal'); if (f) f.classList.remove('hidden');
+      var m = document.getElementById('fatal-msg');
+      if (m) m.textContent = 'O jogo não inicializou. Verifique sua conexão e recarregue.';
+    }
+  }, 8000);
+</script>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>
