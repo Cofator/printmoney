@@ -28,29 +28,43 @@ export class Soldier {
     this.id = id;
     this.group = new THREE.Group();
     const color = TEAM_COLORS[team] || 0xd08a2f;
-    const uniform = new THREE.MeshLambertMaterial({ color });
-    const dark = new THREE.MeshLambertMaterial({ color: 0x2c2c30 });
-    const skin = new THREE.MeshLambertMaterial({ color: 0xc9a07a });
+    const uniform = new THREE.MeshStandardMaterial({ color, roughness: 0.85 });
+    const dark = new THREE.MeshStandardMaterial({ color: 0x2c2c30, roughness: 0.9 });
+    const skin = new THREE.MeshStandardMaterial({ color: 0xc9a07a, roughness: 0.75 });
+    const vestM = new THREE.MeshStandardMaterial({ color: 0x3a4034, roughness: 0.95 });
+    const boot = new THREE.MeshStandardMaterial({ color: 0x1d1d20, roughness: 0.9 });
 
     this.torso = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.62, 0.3), uniform);
     this.torso.position.y = 1.06;
+    this.vest = new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.42, 0.34), vestM);
+    this.vest.position.y = 1.12;
+    this.belt = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.08, 0.32), dark);
+    this.belt.position.y = 0.78;
     this.head = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.28, 0.28), skin);
     this.head.position.y = 1.56;
-    this.helmet = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.12, 0.32), dark);
-    this.helmet.position.y = 1.7;
+    this.visor = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.07, 0.05), new THREE.MeshStandardMaterial({ color: 0x18242c, roughness: 0.2, metalness: 0.6 }));
+    this.visor.position.set(0, 1.58, -0.15);
+    this.helmet = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.14, 0.34), dark);
+    this.helmet.position.y = 1.72;
     this.legL = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.75, 0.22), dark);
     this.legR = this.legL.clone();
     this.legL.position.set(-0.14, 0.375, 0);
     this.legR.position.set(0.14, 0.375, 0);
+    this.bootL = new THREE.Mesh(new THREE.BoxGeometry(0.21, 0.12, 0.3), boot);
+    this.bootR = this.bootL.clone();
+    this.bootL.position.set(-0.14, 0.06, -0.03);
+    this.bootR.position.set(0.14, 0.06, -0.03);
     this.armL = new THREE.Mesh(new THREE.BoxGeometry(0.13, 0.55, 0.13), uniform);
     this.armR = this.armL.clone();
     this.armL.position.set(-0.36, 1.05, 0);
     this.armR.position.set(0.36, 1.05, 0);
-    this.gun = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.6), new THREE.MeshLambertMaterial({ color: 0x17181c }));
+    this.gun = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.6), new THREE.MeshStandardMaterial({ color: 0x17181c, roughness: 0.5, metalness: 0.5 }));
     this.gun.position.set(0.2, 1.15, -0.35);
     this.tag = nameSprite(name, '#' + color.toString(16).padStart(6, '0'));
 
-    this.group.add(this.torso, this.head, this.helmet, this.legL, this.legR, this.armL, this.armR, this.gun, this.tag);
+    this.group.add(this.torso, this.vest, this.belt, this.head, this.visor, this.helmet,
+      this.legL, this.legR, this.bootL, this.bootR, this.armL, this.armR, this.gun, this.tag);
+    this.group.traverse(o => { if (o.isMesh) o.castShadow = true; });
     // partes atingíveis por tiros
     for (const part of [this.torso, this.legL, this.legR, this.armL, this.armR]) {
       part.userData = { pid: id, head: false };
@@ -113,6 +127,10 @@ export class Soldier {
       this.group.rotation.x = 0;
       this.tag.visible = true;
       this.group.visible = true;
+      // nome de inimigo não atravessa paredes (só aliados têm tag em raio-x)
+      const my = me();
+      const friendly = G.mode === 'tdm' && my && p && p.team === my.team;
+      this.tag.material.depthTest = !friendly;
     }
   }
 
@@ -290,7 +308,10 @@ export class Bot {
         if (victim && victim.alive && !(G.mode === 'tdm' && victim.team === this.team)) {
           const dmg = h.object.userData.head ? 30 : 19;
           G.hooks.applyDamage?.(pid, dmg, this.id, 'M8A1', !!h.object.userData.head);
+          G.hooks.spawnBlood?.(h.point);
         }
+      } else if (!pid) {
+        G.hooks.spawnImpact?.(h.point, h.face?.normal);
       }
     } else {
       G.hooks.spawnTracer?.(from, from.clone().addScaledVector(dir, 80), false);

@@ -78,20 +78,50 @@ export class LocalPlayer {
   // ---------- viewmodel ----------
   buildViewmodel() {
     const g = new THREE.Group();
-    const m = (c) => new THREE.MeshLambertMaterial({ color: c });
-    this.vmBody   = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.13, 0.5), m(0x2a2d33));
-    this.vmBarrel = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.045, 0.3), m(0x1a1c20));
-    this.vmMag    = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.1), m(0x3a3e46));
-    this.vmSight  = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.05, 0.12), m(0x14161a));
+    const metal = (c, extra = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.45, metalness: 0.55, ...extra });
+    const poly  = (c) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.8 });
+    this.vmBody   = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.13, 0.5), metal(0x2a2d33));
+    this.vmBarrel = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.045, 0.3), metal(0x1a1c20));
+    this.vmMag    = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.1), metal(0x3a3e46));
+    this.vmSight  = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.06, 0.12), metal(0x14161a));
+    this.vmStock  = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.1, 0.16), poly(0x33363c));
+    this.vmGrip   = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.12, 0.06), poly(0x26282e));
+    this.vmFore   = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.08, 0.18), poly(0x33363c));
     this.vmBarrel.position.set(0, 0.02, -0.38);
     this.vmMag.position.set(0, -0.13, -0.05);
-    this.vmSight.position.set(0, 0.09, -0.1);
+    this.vmSight.position.set(0, 0.095, -0.1);
+    this.vmStock.position.set(0, -0.02, 0.3);
+    this.vmGrip.position.set(0, -0.11, 0.12);
+    this.vmGrip.rotation.x = 0.3;
+    this.vmFore.position.set(0, -0.01, -0.24);
+    // braços e mãos
+    const sleeve = poly(0x4a5240), skin = poly(0xc9a07a);
+    this.armR = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.085, 0.4), sleeve);
+    this.armR.position.set(0.05, -0.15, 0.28);
+    this.armR.rotation.x = 0.5;
+    this.handR = new THREE.Mesh(new THREE.BoxGeometry(0.075, 0.09, 0.09), skin);
+    this.handR.position.set(0, -0.11, 0.13);
+    this.armL = new THREE.Mesh(new THREE.BoxGeometry(0.085, 0.085, 0.34), sleeve);
+    this.armL.position.set(-0.09, -0.16, -0.1);
+    this.armL.rotation.set(0.35, -0.5, 0);
+    this.handL = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 0.1), skin);
+    this.handL.position.set(0, -0.05, -0.24);
+    // textura radial de clarão (estrela suave, não um quadrado)
+    const fcv = document.createElement('canvas');
+    fcv.width = fcv.height = 64;
+    const fc = fcv.getContext('2d');
+    const fg = fc.createRadialGradient(32, 32, 0, 32, 32, 32);
+    fg.addColorStop(0, 'rgba(255,240,190,1)');
+    fg.addColorStop(0.3, 'rgba(255,190,90,0.8)');
+    fg.addColorStop(1, 'rgba(255,160,40,0)');
+    fc.fillStyle = fg; fc.fillRect(0, 0, 64, 64);
     this.flash = new THREE.Mesh(
-      new THREE.PlaneGeometry(0.22, 0.22),
-      new THREE.MeshBasicMaterial({ color: 0xffd070, transparent: true, opacity: 0, depthWrite: false })
+      new THREE.PlaneGeometry(0.3, 0.3),
+      new THREE.MeshBasicMaterial({ map: new THREE.CanvasTexture(fcv), transparent: true, opacity: 0, depthWrite: false })
     );
     this.flash.position.set(0, 0.02, -0.56);
-    g.add(this.vmBody, this.vmBarrel, this.vmMag, this.vmSight, this.flash);
+    g.add(this.vmBody, this.vmBarrel, this.vmMag, this.vmSight, this.vmStock, this.vmGrip,
+      this.vmFore, this.armR, this.handR, this.armL, this.handL, this.flash);
     g.position.set(0.24, -0.22, -0.42);
     this.vm = g;
     this.cam.add(g);
@@ -100,9 +130,16 @@ export class LocalPlayer {
   refreshViewmodel() {
     const key = this.cur.key;
     const scale = { m8a1: 1, pdw57: 0.85, dsr50: 1.35, r870: 1.15, fiveseven: 0.6 }[key] || 1;
+    const pistol = key === 'fiveseven';
     this.vmBody.scale.set(1, 1, scale);
     this.vmBarrel.position.z = -0.28 - 0.14 * scale;
     this.flash.position.z = -0.4 - 0.16 * scale;
+    this.vmStock.visible = !pistol;
+    this.vmFore.visible = !pistol;
+    this.armL.visible = !pistol;
+    this.handL.visible = !pistol;
+    this.vmFore.position.z = -0.1 - 0.14 * scale;
+    this.handL.position.z = -0.1 - 0.14 * scale;
   }
 
   // ---------- input ----------
@@ -196,6 +233,7 @@ export class LocalPlayer {
         if (h.distance > w.range) dmg *= 0.55;
         G.hooks.registerHit?.(pid, Math.round(dmg), head, this.cur.key);
         G.hooks.spawnTracer?.(origin, h.point, true);
+        G.hooks.spawnBlood?.(h.point);
         return;
       }
       // cenário bloqueia o tiro
@@ -225,6 +263,7 @@ export class LocalPlayer {
       if (!victim || !victim.alive) continue;
       if (G.mode === 'tdm' && victim.team === me().team) continue;
       G.hooks.registerHit?.(pid, 150, false, 'faca');
+      G.hooks.spawnBlood?.(h.point);
       return;
     }
   }
