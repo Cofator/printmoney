@@ -1,11 +1,11 @@
 name: Deploy Game to GitHub Pages
 
-# Publica o jogo (pasta game/) no GitHub Pages.
+# Publica o jogo (pasta game/) no GitHub Pages, sincronizando o conteúdo para o
+# branch gh-pages. O GitHub Pages serve automaticamente esse branch, então o site
+# https://cofator.github.io/printmoney/ é atualizado a cada push.
+#
 # Nenhum servidor é necessário: o Pages hospeda os arquivos estáticos e o
 # multiplayer usa WebRTC peer-to-peer (broker público do PeerJS).
-#
-# Requisito único (uma vez): em Settings > Pages do repositório,
-# defina "Source" como "GitHub Actions".
 
 on:
   push:
@@ -20,37 +20,26 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
-# Permite uma única implantação simultânea
 concurrency:
-  group: pages
+  group: deploy-game
   cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Pages
-        uses: actions/configure-pages@v5
+      - name: Publish game/ to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          # habilita o GitHub Pages automaticamente (não requer passo manual)
-          enablement: true
-
-      - name: Upload game artifact
-        uses: actions/upload-pages-artifact@v3
-        with:
-          # publica apenas a pasta do jogo como raiz do site
-          path: 'game'
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./game
+          publish_branch: gh-pages
+          # cria .nojekyll automaticamente para servir pastas com _ e arquivos estáticos
+          user_name: 'github-actions[bot]'
+          user_email: 'github-actions[bot]@users.noreply.github.com'
+          commit_message: 'Deploy game to GitHub Pages'
