@@ -1,0 +1,190 @@
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Inter:wght@400;600;700&display=swap');
+:root{
+  --gold:#e6c469; --gold-dark:#b8933a; --panel:#2b2016; --panel-light:#3a2c1d;
+  --ink:#f2e6cf; --ink-dim:#c9b48c; --danger:#c0392b; --ok:#4caf50; --accent:#5a7fb5;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#12100c;
+  font-family:'Segoe UI',Roboto,system-ui,sans-serif;color:var(--ink);
+  user-select:none;-webkit-user-select:none}
+.screen{position:absolute;inset:0}
+.hidden{display:none !important}
+
+/* ---------- MENU ---------- */
+#menu,#tutorial{display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 30%,#3a2c1d 0%,#161009 70%);}
+.menu-panel{background:linear-gradient(180deg,var(--panel-light),var(--panel));
+  border:3px solid var(--gold-dark);border-radius:14px;padding:36px 44px;
+  box-shadow:0 12px 60px rgba(0,0,0,.7);text-align:center;max-width:560px;width:92%}
+.menu-panel.wide{max-width:720px}
+.game-title{font-size:52px;letter-spacing:3px;color:var(--gold);
+  text-shadow:0 3px 0 #6b501e,0 0 30px rgba(230,196,105,.4);font-weight:800}
+.game-title .numeral{color:var(--ink);font-size:34px;vertical-align:super;margin-left:6px}
+.subtitle{color:var(--ink-dim);margin:10px 0 28px;font-size:14px}
+.menu-buttons{display:flex;flex-direction:column;gap:12px;margin-bottom:20px}
+.btn{background:linear-gradient(180deg,#4a3826,#33261a);color:var(--ink);
+  border:2px solid var(--gold-dark);border-radius:9px;padding:13px 18px;font-size:16px;
+  cursor:pointer;transition:.12s;font-weight:600}
+.btn:hover{background:linear-gradient(180deg,#5c4630,#3d2d1e);border-color:var(--gold);transform:translateY(-1px)}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:linear-gradient(180deg,var(--gold),var(--gold-dark));color:#2a1e10}
+.btn-primary:hover{background:linear-gradient(180deg,#f4d67f,#c8a24a)}
+.btn-ghost{background:transparent;border-color:#5a4630;color:var(--ink-dim)}
+.btn-small{padding:9px 14px;font-size:14px;margin-top:8px}
+.btn-tiny{padding:5px 10px;font-size:12px}
+.difficulty-row{display:flex;gap:14px;align-items:center;justify-content:center;
+  flex-wrap:wrap;color:var(--ink-dim);font-size:13px;margin-top:6px}
+.difficulty-row select,.map-size-label select{background:#33261a;color:var(--ink);
+  border:1px solid var(--gold-dark);border-radius:6px;padding:5px 8px}
+.footer-note{margin-top:22px;font-size:11px;color:#8a7454}
+.lobby{margin:14px 0;padding:16px;background:rgba(0,0,0,.25);border-radius:10px}
+.room-code{font-size:38px;letter-spacing:8px;color:var(--gold);font-weight:800;margin:8px 0}
+.room-input{font-size:26px;letter-spacing:6px;text-align:center;text-transform:uppercase;
+  width:200px;padding:8px;border-radius:8px;border:2px solid var(--gold-dark);
+  background:#1c150d;color:var(--gold)}
+.lobby-status{color:var(--ink-dim);font-size:13px;margin-top:10px;min-height:18px}
+.tutorial-list{text-align:left;line-height:1.9;font-size:15px;margin:16px 0 24px;padding-left:20px}
+.tutorial-list b{color:var(--gold)}
+h2{color:var(--gold);margin-bottom:8px}
+
+/* ---------- JOGO ---------- */
+#game{background:#1b2b16}
+#canvas{position:absolute;inset:0;width:100%;height:100%;cursor:default;image-rendering:auto}
+#topbar{position:absolute;top:0;left:0;right:0;height:44px;display:flex;align-items:center;
+  gap:4px;padding:0 12px;background:linear-gradient(180deg,rgba(20,15,9,.96),rgba(20,15,9,.78));
+  border-bottom:2px solid var(--gold-dark);z-index:10}
+.res{display:flex;align-items:center;gap:6px;padding:4px 12px;font-size:15px;font-weight:700;
+  color:var(--ink);white-space:nowrap}
+.res-icon{font-size:17px}
+.age-indicator{color:var(--gold);font-size:13px}
+.clock{color:var(--ink-dim);font-variant-numeric:tabular-nums}
+.spacer{flex:1}
+#minimap-wrap{position:absolute;bottom:8px;right:8px;padding:5px;background:rgba(20,15,9,.92);
+  border:2px solid var(--gold-dark);border-radius:8px;z-index:10}
+#minimap{display:block;border-radius:3px;cursor:pointer}
+#bottombar{position:absolute;bottom:0;left:0;right:224px;height:132px;display:flex;gap:12px;
+  padding:10px 14px;background:linear-gradient(180deg,rgba(20,15,9,.72),rgba(20,15,9,.96));
+  border-top:2px solid var(--gold-dark);z-index:9}
+#selection-info{width:230px;display:flex;gap:10px;flex-shrink:0}
+.portrait{width:74px;height:74px;border:2px solid var(--gold-dark);border-radius:8px;
+  background:#1c150d;display:flex;align-items:center;justify-content:center;font-size:40px;flex-shrink:0}
+#sel-details{font-size:13px;line-height:1.5;color:var(--ink-dim);overflow:hidden}
+#sel-details .sel-name{color:var(--gold);font-size:16px;font-weight:700}
+.hpbar{height:7px;background:#3a1010;border-radius:4px;margin-top:4px;overflow:hidden;width:130px}
+.hpbar>div{height:100%;background:var(--ok);transition:width .2s}
+#command-card{flex:1;display:grid;grid-template-columns:repeat(auto-fill,64px);
+  grid-auto-rows:64px;gap:8px;align-content:flex-start;overflow-y:auto}
+.cmd{width:64px;height:64px;border:2px solid var(--gold-dark);border-radius:8px;
+  background:linear-gradient(180deg,#3a2c1d,#2b2016);cursor:pointer;position:relative;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  font-size:26px;transition:.1s;padding:2px}
+.cmd:hover{border-color:var(--gold);background:linear-gradient(180deg,#4a3826,#33261a)}
+.cmd:disabled,.cmd.disabled{opacity:.4;cursor:not-allowed;filter:grayscale(.6)}
+.cmd .cmd-label{font-size:9px;color:var(--ink-dim);margin-top:1px;text-align:center;line-height:1}
+.cmd .cmd-cost{position:absolute;bottom:1px;left:2px;right:2px;font-size:8px;color:var(--gold);
+  display:flex;justify-content:center;gap:3px}
+.cmd .cmd-queue{position:absolute;top:2px;right:4px;font-size:11px;color:var(--gold);font-weight:700}
+.cmd-tip{position:fixed;background:#12100c;border:1px solid var(--gold-dark);border-radius:6px;
+  padding:8px 10px;font-size:12px;max-width:220px;z-index:50;pointer-events:none;line-height:1.4;
+  box-shadow:0 4px 16px rgba(0,0,0,.6)}
+.cmd-tip .tip-name{color:var(--gold);font-weight:700;display:block;margin-bottom:3px}
+#toast{position:absolute;top:52px;left:50%;transform:translateX(-50%);z-index:20;
+  display:flex;flex-direction:column;gap:6px;align-items:center;pointer-events:none}
+.toast-msg{background:rgba(20,15,9,.94);border:1px solid var(--gold-dark);border-radius:7px;
+  padding:8px 16px;font-size:14px;color:var(--ink);animation:fade 3s forwards}
+.toast-msg.warn{border-color:var(--danger);color:#f5b8b0}
+@keyframes fade{0%{opacity:0;transform:translateY(-8px)}10%{opacity:1;transform:none}
+  80%{opacity:1}100%{opacity:0}}
+.net-status{position:absolute;top:52px;right:12px;z-index:20;background:rgba(20,15,9,.9);
+  border:1px solid var(--accent);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--ink-dim)}
+.overlay{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.72);z-index:100}
+.endgame-panel{background:linear-gradient(180deg,var(--panel-light),var(--panel));
+  border:3px solid var(--gold);border-radius:16px;padding:40px 60px;text-align:center}
+.endgame-panel h1{font-size:56px;color:var(--gold);text-shadow:0 3px 0 #6b501e;margin-bottom:10px}
+.endgame-panel p{color:var(--ink-dim);margin-bottom:24px;font-size:16px}
+#endgame-title.defeat{color:var(--danger)}
+@media (max-width:720px){
+  .game-title{font-size:38px}
+  #bottombar{right:0;height:118px}
+  #minimap-wrap{opacity:.9}
+  #minimap{width:130px;height:130px}
+}
+
+/* ============================================================
+   POLIMENTO VISUAL (v2) — layout mais bonito
+   ============================================================ */
+body{font-family:'Inter',system-ui,sans-serif}
+
+/* --- Tela de erro fatal --- */
+.fatal{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 40%,#2a1410,#0a0705)}
+.fatal-box{background:linear-gradient(180deg,#3a2c1d,#231a12);border:2px solid var(--danger);
+  border-radius:16px;padding:34px 40px;text-align:center;max-width:440px;box-shadow:0 20px 60px rgba(0,0,0,.7)}
+.fatal-box h2{color:#f5b8b0;margin-bottom:12px}
+.fatal-box p{color:var(--ink-dim);margin-bottom:20px;font-size:14px}
+
+/* --- Menu: fundo animado + vinheta --- */
+#menu,#tutorial{background:
+  radial-gradient(1200px 600px at 50% -10%, #5a4326 0%, transparent 60%),
+  radial-gradient(900px 700px at 80% 110%, #2f4a2a 0%, transparent 55%),
+  radial-gradient(circle at 50% 40%,#241a10 0%,#0d0a06 75%)}
+#menu::before,#tutorial::before{content:'';position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(45deg,rgba(255,255,255,.012) 0 2px,transparent 2px 6px);
+  animation:drift 40s linear infinite}
+@keyframes drift{to{background-position:600px 600px}}
+
+.menu-panel{background:linear-gradient(180deg,rgba(64,49,32,.96),rgba(30,22,14,.98));
+  border:2px solid var(--gold-dark);border-radius:18px;padding:40px 46px;
+  box-shadow:0 20px 70px rgba(0,0,0,.75),inset 0 1px 0 rgba(255,255,255,.06);
+  backdrop-filter:blur(4px);position:relative;z-index:1}
+.menu-panel::after{content:'';position:absolute;inset:6px;border:1px solid rgba(230,196,105,.18);
+  border-radius:12px;pointer-events:none}
+
+.game-title{font-family:'Cinzel',serif;font-size:56px;letter-spacing:4px;
+  background:linear-gradient(180deg,#f8e3a0,#d4a84a 55%,#a87d2e);
+  -webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 3px 0 #5a3f16) drop-shadow(0 0 24px rgba(230,196,105,.35));
+  animation:titleGlow 3.5s ease-in-out infinite}
+@keyframes titleGlow{0%,100%{filter:drop-shadow(0 3px 0 #5a3f16) drop-shadow(0 0 20px rgba(230,196,105,.25))}
+  50%{filter:drop-shadow(0 3px 0 #5a3f16) drop-shadow(0 0 34px rgba(230,196,105,.55))}}
+.game-title .numeral{-webkit-text-fill-color:var(--ink);color:var(--ink);
+  font-family:'Cinzel',serif;font-size:30px}
+
+.btn{border-radius:11px;letter-spacing:.3px;box-shadow:0 2px 0 rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08);
+  transition:transform .12s,box-shadow .12s,background .12s,border-color .12s}
+.btn:hover{box-shadow:0 6px 18px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.12)}
+.btn-primary{box-shadow:0 4px 14px rgba(230,196,105,.35),inset 0 1px 0 rgba(255,255,255,.35)}
+.room-code{font-family:'Cinzel',serif}
+
+/* --- Topbar: chips de recurso --- */
+#topbar{height:50px;gap:8px;background:linear-gradient(180deg,rgba(18,13,8,.98),rgba(24,17,10,.90));
+  border-bottom:2px solid var(--gold-dark);box-shadow:0 4px 16px rgba(0,0,0,.4)}
+.res{background:linear-gradient(180deg,rgba(58,44,29,.6),rgba(36,27,17,.6));
+  border:1px solid rgba(230,196,105,.22);border-radius:9px;padding:5px 12px;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
+.res-icon{filter:drop-shadow(0 1px 1px rgba(0,0,0,.5))}
+.age-indicator{background:linear-gradient(180deg,rgba(90,66,38,.7),rgba(60,44,25,.7));
+  border-color:rgba(230,196,105,.4)}
+.btn-tiny{border-radius:8px}
+
+/* --- Bottombar / painel de comando --- */
+#bottombar{background:linear-gradient(180deg,rgba(24,17,10,.62),rgba(16,11,6,.98));
+  border-top:2px solid var(--gold-dark);box-shadow:0 -6px 20px rgba(0,0,0,.45)}
+.portrait{background:radial-gradient(circle at 40% 30%,#3a2c1d,#160f08);
+  box-shadow:inset 0 2px 8px rgba(0,0,0,.6);border-radius:10px}
+.cmd{border-radius:10px;box-shadow:0 2px 0 rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.06)}
+.cmd:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.12)}
+.cmd>div:first-child{filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+
+/* --- Minimapa --- */
+#minimap-wrap{border-radius:12px;box-shadow:0 6px 22px rgba(0,0,0,.55);
+  border:2px solid var(--gold-dark);background:linear-gradient(180deg,rgba(24,17,10,.96),rgba(14,10,6,.96))}
+
+/* --- Toast --- */
+.toast-msg{border-radius:9px;backdrop-filter:blur(3px);
+  box-shadow:0 6px 20px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.06);font-weight:600}
+
+/* --- Endgame --- */
+.endgame-panel h1{font-family:'Cinzel',serif}
+.endgame-panel{box-shadow:0 24px 80px rgba(0,0,0,.8)}
