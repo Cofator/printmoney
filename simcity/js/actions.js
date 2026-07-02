@@ -96,6 +96,7 @@ function doBulldoze(S, x, y) {
 //     | {t:'tax', r,c,i} | {t:'fund', police,fire,roads,health,edu}
 //     | {t:'bond', take:bool} | {t:'disaster', kind} | {t:'setopt', key, val}
 function applyAction(S, act) {
+  if (typeof window !== 'undefined') window.__worldStamp = (window.__worldStamp || 0) + 1;
   switch (act.t) {
     case 'build': {
       if (placeError(S, act.code, act.x, act.y)) return false;
