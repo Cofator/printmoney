@@ -12,6 +12,7 @@ on:
       - claude/moneyprinterturbo-setup-o75fk7
     paths:
       - 'simcity/**'
+      - 'simcity-v1/**'
       - '.github/workflows/deploy-game-pages.yml'
   workflow_dispatch:
 
@@ -53,6 +54,11 @@ jobs:
           mkdir -p simcity
           cp -a "$GITHUB_WORKSPACE/simcity/." simcity/
           rm -f simcity/.nojekyll
+          if [ -d "$GITHUB_WORKSPACE/simcity-v1" ]; then
+            rm -rf simcity-v1
+            mkdir -p simcity-v1
+            cp -a "$GITHUB_WORKSPACE/simcity-v1/." simcity-v1/
+          fi
           touch .nojekyll
 
           # Root hub page (only created/updated if the root is ours or empty)
