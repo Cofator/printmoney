@@ -63,6 +63,7 @@
     <button class="spd" data-v="4" title="Fastest">▶▶▶</button>
     <span class="sep"></span>
     <button id="btnView" title="Toggle 3D / 2D view">🧊 3D</button>
+    <button id="btnCycle" title="Day/night cycle on/off">🌗</button>
     <span class="sep"></span>
     <button id="btnBudget">💰 Budget</button>
     <button id="btnCharts">📈 Charts</button>
@@ -223,6 +224,7 @@
       <li><b>Goal:</b> grow a thriving city. Zone land, provide power, water and services, and keep the budget positive.</li>
       <li><b>Camera (3D):</b> right-drag to pan · <b>Shift+right-drag to rotate/tilt</b> · Q/E rotate · wheel zoom · click the minimap. Toggle the classic 2D view with the 🧊/🗺️ button.</li>
       <li><b>Camera (2D):</b> right/middle-drag to pan · mouse wheel to zoom · arrow keys.</li>
+      <li><b>Slow computer?</b> Use the 🗺️ 2D button, turn off the 🌗 day/night cycle, or open the game with <code>?view=2d</code> in the address.</li>
       <li><b>Build:</b> pick a tool on the left, click (or drag) on the map. Bulldoze mistakes with 🚜 (B).</li>
       <li><b>Zones</b> (R/C/I) need <b>power</b> (connect with ⚡ lines to a plant) and a <b>road within 4 tiles</b> to develop. Water coverage (💧 pumps/towers) unlocks high density.</li>
       <li><b>Residents</b> need jobs (C/I), low pollution and low crime. Services (police, fire, health, schools) raise land value and safety — but cost money monthly.</li>
@@ -236,6 +238,14 @@
 
 <script src="vendor/peerjs.min.js"></script>
 <script src="vendor/three.min.js"></script>
+<script src="vendor/fx/EffectComposer.js"></script>
+<script src="vendor/fx/RenderPass.js"></script>
+<script src="vendor/fx/ShaderPass.js"></script>
+<script src="vendor/fx/CopyShader.js"></script>
+<script src="vendor/fx/LuminosityHighPassShader.js"></script>
+<script src="vendor/fx/UnrealBloomPass.js"></script>
+<script src="vendor/fx/FXAAShader.js"></script>
+<script src="vendor/fx/Sky.js"></script>
 <script src="js/util.js"></script>
 <script src="js/data.js"></script>
 <script src="js/map.js"></script>
@@ -243,6 +253,7 @@
 <script src="js/sim.js"></script>
 <script src="js/sprites.js"></script>
 <script src="js/render.js"></script>
+<script src="js/textures3d.js"></script>
 <script src="js/render3d.js"></script>
 <script src="js/net.js"></script>
 <script src="js/ui.js"></script>

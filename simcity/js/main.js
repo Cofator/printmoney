@@ -95,7 +95,10 @@ function startGame(S, joining) {
   $('hud').style.display = '';
   initUI(GAME);
   centerCamera($('game'));
-  setViewMode(true); // 3D by default, falls back to 2D without WebGL
+  // 3D by default; ?view=2d forces the classic view (weak machines),
+  // and WebGL failures fall back to 2D automatically
+  const wantedView = new URLSearchParams(location.search).get('view');
+  setViewMode(wantedView !== '2d');
   if (!joining) addTicker('🏗️ Welcome to ' + S.cityName + '! You have ' + fmtMoney(S.funds) + ' to build your dream city.', 'good');
   requestAnimationFrame(frame);
 }

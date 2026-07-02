@@ -78,7 +78,7 @@ body:not(.mode3d) #game3d { display: none; }
 #date { min-width: 70px; }
 #netStatus { color: #7dc4ff; font-size: 12px; margin-left: auto; }
 .spd { padding: 2px 8px; }
-.spd.active { background: #2e6b4f; border-color: #6be08a; }
+.spd.active, #btnCycle.active { background: #2e6b4f; border-color: #6be08a; }
 
 #demand { display: flex; gap: 4px; align-items: flex-end; height: 30px; }
 .dem-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
