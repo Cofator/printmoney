@@ -81,6 +81,6 @@ export class ClientModel {
     return raw ? this._expand(raw, null, 1) : null;
   }
   nodes() { return this._nodes.values(); }
-  projectiles() { return this.curr ? this.curr.proj.map(([x, y]) => ({ x, y })) : []; }
+  projectiles() { return this.curr ? this.curr.proj.map(([x, y, a]) => ({ x, y, angle: a || 0 })) : []; }
   drainEvents() { const e = this.pendingEvents; this.pendingEvents = []; return e; }
 }

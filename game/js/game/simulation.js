@@ -434,7 +434,8 @@ export class Simulation {
     const dmg = this.dmgAgainst(e, target);
     if (a.projectile) {
       this.projectiles.push({ x: e.x, y: e.y, targetId: target.id,
-        dmg, speed: 11 * TILE, ownerId: e.owner, attackerType: e.type });
+        dmg, speed: 11 * TILE, ownerId: e.owner, attackerType: e.type,
+        angle: Math.atan2(target.y - e.y, target.x - e.x) });
     } else {
       this.applyDamage(target, dmg, e.owner);
     }
@@ -625,7 +626,8 @@ export class Simulation {
           b.atkCd = def.attack.cooldown;
           if (def.attack.projectile)
             this.projectiles.push({ x: b.x, y: b.y, targetId: target.id,
-              dmg: def.attack.damage, speed: 12*TILE, ownerId: b.owner, attackerType: b.type });
+              dmg: def.attack.damage, speed: 12*TILE, ownerId: b.owner, attackerType: b.type,
+              angle: Math.atan2(target.y - b.y, target.x - b.x) });
           else this.applyDamage(target, def.attack.damage, b.owner);
         }
       }
@@ -677,6 +679,7 @@ export class Simulation {
       const t = this.entities.get(pr.targetId);
       if (!t || t.hp <= 0) { this.projectiles.splice(i, 1); continue; }
       const d = dist(pr.x, pr.y, t.x, t.y);
+      pr.angle = Math.atan2(t.y - pr.y, t.x - pr.x);
       const step = pr.speed * dt;
       if (d <= step + TILE*0.4) {
         this.applyDamage(t, pr.dmg, pr.ownerId);
@@ -744,7 +747,7 @@ export class Simulation {
         d: p.defeated ? 1 : 0,
       })),
       ents, nodes,
-      proj: this.projectiles.map(p => [Math.round(p.x), Math.round(p.y)]),
+      proj: this.projectiles.map(p => [Math.round(p.x), Math.round(p.y), Math.round((p.angle || 0) * 100) / 100]),
       over: this.gameOver ? 1 : 0, win: this.winner,
     };
   }
