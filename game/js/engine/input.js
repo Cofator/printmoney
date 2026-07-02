@@ -5,7 +5,7 @@ export class Input {
     // ctx: { canvas, camera, model, renderer, hud, dispatch, localPlayerId, controllable }
     Object.assign(this, ctx);
     this.keys = new Set();
-    this.mouse = { x: 0, y: 0, down: false, dragStart: null, moved: false };
+    this.mouse = { x: -1, y: -1, down: false, dragStart: null, moved: false };
     this.edgePan = true;
     this.bind();
   }
@@ -174,8 +174,12 @@ export class Input {
           return e;
         }
       } else {
-        const d = (e.x-wx)**2 + (e.y-wy)**2;
-        if (d < (TILE*0.5)**2 && d < bestD) { bestD = d; best = e; }
+        // tolerância maior em perspectiva 3D: o corpo visível fica "acima"
+        // do ponto no chão, então aceita cliques um pouco ao sul da base
+        const d = Math.min(
+          (e.x-wx)**2 + (e.y-wy)**2,
+          (e.x-wx)**2 + (e.y-(wy-10))**2);
+        if (d < (TILE*0.8)**2 && d < bestD) { bestD = d; best = e; }
       }
     }
     return best;

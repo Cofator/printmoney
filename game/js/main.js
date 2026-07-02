@@ -27,8 +27,11 @@ class GameSession {
     this.net = config.net || null;
   }
 
-  start() {
-    const canvas = $('canvas');
+  async start() {
+    // recria o canvas (evita conflito de contexto 2D/WebGL entre sessões)
+    const oldCanvas = $('canvas');
+    const canvas = oldCanvas.cloneNode(false);
+    oldCanvas.replaceWith(canvas);
     if (this.mode === 'guest') {
       this.model = new ClientModel(this.config.mapSize, this.config.numPlayers, this.config.seed, this.localPlayerId);
     } else {
@@ -41,8 +44,16 @@ class GameSession {
       if (this.mode === 'single') this.ais.push(new AI(1, this.config.aiDifficulty));
     }
 
-    this.camera = new Camera(this.model);
-    this.renderer = new Renderer(canvas, this.model, this.camera);
+    // renderização 3D (WebGL) com fallback 2D automático
+    try {
+      const three = await import('./engine/renderer3d.js');
+      this.camera = new three.Camera3D(this.model);
+      this.renderer = new three.Renderer3D(canvas, this.model, this.camera);
+    } catch (err) {
+      console.warn('3D indisponível; usando renderização 2D.', err);
+      this.camera = new Camera(this.model);
+      this.renderer = new Renderer(canvas, this.model, this.camera);
+    }
     this.dispatch = (cmd) => this.onDispatch(cmd);
     this.hud = new HUD({ model: this.model, camera: this.camera, renderer: this.renderer,
       input: null, dispatch: this.dispatch, localPlayerId: this.localPlayerId });
@@ -164,6 +175,7 @@ class GameSession {
   stop() {
     this.running = false;
     window.removeEventListener('resize', this._resize);
+    if (this.renderer && this.renderer.dispose) this.renderer.dispose();
     if (this.net) this.net.destroy();
     $('net-status').classList.add('hidden');
     $('endgame').classList.add('hidden');

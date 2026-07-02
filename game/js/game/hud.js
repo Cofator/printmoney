@@ -258,7 +258,12 @@ export class HUD {
     // retângulo da câmera
     const cam = this.camera;
     ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
-    ctx.strokeRect((cam.x/TILE)*sx, (cam.y/TILE)*sy,
-      (cam.vw/cam.zoom/TILE)*sx, (cam.vh/cam.zoom/TILE)*sy);
+    if (cam.viewRect) {
+      const r = cam.viewRect();
+      ctx.strokeRect((r.x/TILE)*sx, (r.y/TILE)*sy, (r.w/TILE)*sx, (r.h/TILE)*sy);
+    } else {
+      ctx.strokeRect((cam.x/TILE)*sx, (cam.y/TILE)*sy,
+        (cam.vw/cam.zoom/TILE)*sx, (cam.vh/cam.zoom/TILE)*sy);
+    }
   }
 }
