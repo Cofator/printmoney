@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>Age of Empire Clone — RTS Online</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8F%9B%EF%B8%8F%3C/text%3E%3C/svg%3E" />
+<link rel="preconnect" href="https://unpkg.com" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+<!-- ===================== MENU PRINCIPAL ===================== -->
+<div id="menu" class="screen">
+  <div class="menu-panel">
+    <h1 class="game-title">AGE OF EMPIRE<span class="numeral">IV</span></h1>
+    <p class="subtitle">Estratégia em Tempo Real • Jogável no Navegador • Multiplayer P2P</p>
+
+    <div class="menu-buttons">
+      <button id="btn-single" class="btn btn-primary">⚔️ Um Jogador (vs IA)</button>
+      <button id="btn-host" class="btn">🌐 Criar Sala Online</button>
+      <button id="btn-join" class="btn">🔗 Entrar em Sala</button>
+      <button id="btn-tutorial" class="btn btn-ghost">📖 Como Jogar</button>
+    </div>
+
+    <div id="lobby" class="lobby hidden">
+      <div id="lobby-host" class="hidden">
+        <p>Compartilhe este código com seu adversário:</p>
+        <div class="room-code" id="room-code">------</div>
+        <button id="btn-copy" class="btn btn-small">Copiar código</button>
+        <p class="lobby-status" id="host-status">Aguardando adversário conectar…</p>
+      </div>
+      <div id="lobby-join" class="hidden">
+        <p>Digite o código da sala:</p>
+        <input id="join-code" class="room-input" maxlength="6" placeholder="ABC123" />
+        <button id="btn-do-join" class="btn btn-small btn-primary">Conectar</button>
+        <p class="lobby-status" id="join-status"></p>
+      </div>
+      <button id="btn-back" class="btn btn-ghost btn-small">← Voltar</button>
+    </div>
+
+    <div class="difficulty-row" id="difficulty-row">
+      <span>Dificuldade da IA:</span>
+      <select id="ai-difficulty">
+        <option value="easy">Fácil</option>
+        <option value="normal" selected>Normal</option>
+        <option value="hard">Difícil</option>
+      </select>
+      <label class="map-size-label">Mapa:
+        <select id="map-size">
+          <option value="48">Pequeno</option>
+          <option value="64" selected>Médio</option>
+          <option value="80">Grande</option>
+        </select>
+      </label>
+    </div>
+
+    <p class="footer-note">Publicado gratuitamente via GitHub Pages — nenhum servidor necessário.</p>
+  </div>
+</div>
+
+<!-- ===================== TUTORIAL ===================== -->
+<div id="tutorial" class="screen hidden">
+  <div class="menu-panel wide">
+    <h2>Como Jogar</h2>
+    <ul class="tutorial-list">
+      <li><b>Objetivo:</b> destrua o Centro Urbano inimigo para vencer.</li>
+      <li><b>Selecionar:</b> clique numa unidade, ou arraste para caixa de seleção. Duplo-clique seleciona todas do mesmo tipo.</li>
+      <li><b>Mover / Atacar:</b> com unidades selecionadas, clique direito num destino ou inimigo.</li>
+      <li><b>Coletar recursos:</b> selecione aldeões e clique direito em floresta (madeira 🪵), ouro 🪙, pedra 🪨 ou ovelhas/arbustos (comida 🍖).</li>
+      <li><b>Construir:</b> selecione um aldeão e clique num edifício no painel inferior, depois clique no mapa.</li>
+      <li><b>Treinar unidades:</b> selecione um edifício e use os botões do painel para treinar.</li>
+      <li><b>População:</b> construa Casas para aumentar o limite populacional.</li>
+      <li><b>Câmera:</b> WASD ou setas para mover, roda do mouse ou +/- para zoom. Bordas da tela também movem a câmera.</li>
+      <li><b>Atalhos:</b> H = centralizar no Centro Urbano, delete = destruir seleção.</li>
+    </ul>
+    <button id="btn-tut-back" class="btn btn-primary">Entendi!</button>
+  </div>
+</div>
+
+<!-- ===================== JOGO ===================== -->
+<div id="game" class="screen hidden">
+  <canvas id="canvas"></canvas>
+
+  <!-- HUD Topo: recursos -->
+  <div id="topbar">
+    <div class="res" title="Comida"><span class="res-icon">🍖</span><span id="res-food">200</span></div>
+    <div class="res" title="Madeira"><span class="res-icon">🪵</span><span id="res-wood">200</span></div>
+    <div class="res" title="Ouro"><span class="res-icon">🪙</span><span id="res-gold">100</span></div>
+    <div class="res" title="Pedra"><span class="res-icon">🪨</span><span id="res-stone">100</span></div>
+    <div class="res" title="População"><span class="res-icon">👥</span><span id="res-pop">0/0</span></div>
+    <div class="res age-indicator" title="Era"><span id="res-age">Era Feudal</span></div>
+    <div class="spacer"></div>
+    <div class="res clock" title="Tempo"><span id="game-clock">00:00</span></div>
+    <button id="btn-menu" class="btn btn-tiny">Menu</button>
+  </div>
+
+  <!-- Minimapa -->
+  <div id="minimap-wrap">
+    <canvas id="minimap" width="200" height="200"></canvas>
+  </div>
+
+  <!-- Painel inferior: seleção + ações -->
+  <div id="bottombar">
+    <div id="selection-info">
+      <div id="portrait" class="portrait"></div>
+      <div id="sel-details"></div>
+    </div>
+    <div id="command-card"></div>
+  </div>
+
+  <!-- Mensagens -->
+  <div id="toast"></div>
+  <div id="net-status" class="net-status hidden"></div>
+
+  <!-- Tela de fim de jogo -->
+  <div id="endgame" class="overlay hidden">
+    <div class="endgame-panel">
+      <h1 id="endgame-title">Vitória!</h1>
+      <p id="endgame-sub"></p>
+      <button id="btn-endgame" class="btn btn-primary">Voltar ao Menu</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

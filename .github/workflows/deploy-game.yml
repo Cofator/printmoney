@@ -1,0 +1,53 @@
+name: Deploy Game to GitHub Pages
+
+# Publica o jogo (pasta game/) no GitHub Pages.
+# Nenhum servidor é necessário: o Pages hospeda os arquivos estáticos e o
+# multiplayer usa WebRTC peer-to-peer (broker público do PeerJS).
+#
+# Requisito único (uma vez): em Settings > Pages do repositório,
+# defina "Source" como "GitHub Actions".
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - claude/aoe4-game-clone-lhgvxu
+      - claude/moneyprinterturbo-setup-o75fk7
+    paths:
+      - 'game/**'
+      - '.github/workflows/deploy-game.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Permite uma única implantação simultânea
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload game artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # publica apenas a pasta do jogo como raiz do site
+          path: 'game'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
