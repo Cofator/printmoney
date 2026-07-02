@@ -360,6 +360,13 @@ function initUI(G) {
   document.querySelectorAll('.modal').forEach(m => m.addEventListener('mousedown', (e) => { if (e.target === m) closeModals(); }));
 
   $('btnView').onclick = () => setViewMode(!G.mode3d);
+  $('btnCycle').onclick = () => {
+    R3D.cycleOn = !R3D.cycleOn;
+    if (!R3D.cycleOn) R3D.dayT = 0.42; // fixed pleasant daylight
+    $('btnCycle').classList.toggle('active', R3D.cycleOn);
+    addTicker(R3D.cycleOn ? '🌗 Day/night cycle on.' : '☀️ Day/night cycle off (always day).', '');
+  };
+  $('btnCycle').classList.add('active');
   $('btnBudget').onclick = () => { refreshBudget(G.S); openModal('modal-budget'); };
   $('btnCharts').onclick = () => { drawCharts(G.S); openModal('modal-charts'); };
   $('btnDisasters').onclick = () => openModal('modal-disasters');
