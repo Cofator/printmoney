@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BLACK OPS WEB II — FPS Multiplayer</title>
+<style>
+  :root{
+    --orange:#ff9c00; --orange2:#ffb840; --blue:#38b6ff; --dark:rgba(10,12,16,.85);
+    --font:'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;user-select:none}
+  html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:var(--font);color:#eee}
+  #c{position:fixed;inset:0;display:block}
+  .hidden{display:none !important}
+
+  /* ---------- SCREENS ---------- */
+  .screen{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at 50% 30%, #1a2430 0%, #05070a 75%);z-index:50}
+  .screen h1{font-size:52px;font-weight:900;letter-spacing:4px;font-style:italic;color:#fff;text-shadow:0 0 24px rgba(56,182,255,.8)}
+  .screen h1 span{color:var(--orange)}
+  .screen h2{font-size:26px;letter-spacing:3px;color:var(--orange);margin-bottom:18px;font-style:italic}
+  .sub{color:#9ab;margin:6px 0 26px;letter-spacing:1px}
+  .panel{background:var(--dark);border:1px solid rgba(56,182,255,.35);padding:26px 34px;min-width:420px;
+    box-shadow:0 0 40px rgba(0,0,0,.7);clip-path:polygon(12px 0,100% 0,100% calc(100% - 12px),calc(100% - 12px) 100%,0 100%,0 12px)}
+  .row{display:flex;gap:10px;margin:8px 0}
+  input[type=text]{flex:1;background:#0b1118;border:1px solid #2a3a4a;color:#fff;padding:10px 12px;font-size:16px;
+    letter-spacing:1px;outline:none}
+  input[type=text]:focus{border-color:var(--orange)}
+  button{background:linear-gradient(180deg,#213040,#141d27);border:1px solid #3a5a78;color:#fff;padding:11px 20px;
+    font-size:15px;font-weight:700;letter-spacing:2px;cursor:pointer;text-transform:uppercase;
+    clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);transition:.15s}
+  button:hover{background:linear-gradient(180deg,var(--orange),#c96f00);border-color:var(--orange2);color:#000}
+  button.big{width:100%;padding:14px;font-size:17px;margin:6px 0}
+  button.orange{background:linear-gradient(180deg,var(--orange),#b96800);border-color:var(--orange2);color:#101010}
+  button.orange:hover{background:linear-gradient(180deg,#ffd080,var(--orange))}
+  .controls{margin-top:22px;font-size:13px;color:#8aa;line-height:1.9;column-count:2;column-gap:40px;text-align:left}
+  .controls b{color:#cde}
+  #roomInfo{margin-top:14px;font-size:15px;color:var(--orange2);letter-spacing:1px;text-align:center}
+  #roomInfo .code{font-size:30px;font-weight:900;letter-spacing:6px;color:#fff}
+  #shareLink{width:100%;margin-top:6px;font-size:12px;color:#7fd;background:#0b1118;border:1px dashed #2a3a4a;padding:6px;cursor:pointer;word-break:break-all;user-select:text}
+  .err{color:#ff5555;margin-top:10px;min-height:18px;font-size:14px;text-align:center}
+
+  /* ---------- CLASS SELECT ---------- */
+  .classes{display:flex;gap:14px;margin:10px 0 18px}
+  .classCard{width:150px;padding:14px 12px;background:#0d141c;border:1px solid #2a3a4a;cursor:pointer;text-align:center;transition:.15s}
+  .classCard:hover{border-color:var(--orange)}
+  .classCard.sel{border-color:var(--orange);background:#1c2330;box-shadow:0 0 16px rgba(255,156,0,.35)}
+  .classCard .icon{font-size:34px;margin-bottom:6px}
+  .classCard .wname{font-weight:800;color:var(--orange2);letter-spacing:1px;font-size:14px}
+  .classCard .wdesc{font-size:11px;color:#8aa;margin-top:6px;line-height:1.5}
+
+  /* ---------- HUD ---------- */
+  #hud{position:fixed;inset:0;pointer-events:none;z-index:20}
+  #crosshair{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:26px;height:26px}
+  #crosshair span{position:absolute;background:#dfe;box-shadow:0 0 3px #000}
+  #crosshair .t{left:12px;top:0;width:2px;height:7px}#crosshair .b{left:12px;bottom:0;width:2px;height:7px}
+  #crosshair .l{left:0;top:12px;width:7px;height:2px}#crosshair .r{right:0;top:12px;width:7px;height:2px}
+  #hitmarker{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) rotate(45deg);width:30px;height:30px;opacity:0;transition:opacity .25s}
+  #hitmarker span{position:absolute;background:#fff;box-shadow:0 0 4px #000}
+  #hitmarker.head span{background:#ff4040}
+  #hitmarker .t{left:14px;top:0;width:2px;height:9px}#hitmarker .b{left:14px;bottom:0;width:2px;height:9px}
+  #hitmarker .l{left:0;top:14px;width:9px;height:2px}#hitmarker .r{right:0;top:14px;width:9px;height:2px}
+  #dmgVignette{position:absolute;inset:0;background:radial-gradient(ellipse at center, transparent 45%, rgba(255,0,0,.55) 100%);opacity:0;transition:opacity .3s}
+  #ammo{position:absolute;right:34px;bottom:26px;text-align:right}
+  #ammo .mag{font-size:42px;font-weight:900;color:#fff;text-shadow:0 0 8px rgba(56,182,255,.7)}
+  #ammo .res{font-size:20px;color:#9ab;font-weight:700}
+  #weaponName{font-size:13px;letter-spacing:2px;color:var(--orange2);text-transform:uppercase}
+  #nades{font-size:14px;color:#cde;margin-top:2px}
+  #healthWrap{position:absolute;left:34px;bottom:26px;width:220px}
+  #healthBar{height:8px;background:#222;border:1px solid #445}
+  #healthFill{height:100%;width:100%;background:linear-gradient(90deg,#57e389,#8ff0a4);transition:width .15s}
+  #healthTxt{font-size:13px;color:#9ab;margin-top:4px;letter-spacing:1px}
+  #topbar{position:absolute;top:16px;left:50%;transform:translateX(-50%);display:flex;gap:18px;align-items:center;
+    background:var(--dark);padding:6px 22px;border:1px solid rgba(56,182,255,.25)}
+  #topbar .score{font-size:22px;font-weight:900}
+  #topbar .alpha{color:var(--blue)} #topbar .bravo{color:var(--orange)}
+  #matchTimer{font-size:18px;font-weight:700;color:#fff;min-width:64px;text-align:center}
+  #minimapWrap{position:absolute;left:24px;top:24px;border:1px solid rgba(56,182,255,.35);background:rgba(5,10,14,.75)}
+  #minimap{display:block}
+  #uavTag{position:absolute;left:24px;top:200px;color:#7fd;font-size:12px;letter-spacing:2px;display:none}
+  #killfeed{position:absolute;right:24px;top:24px;text-align:right;font-size:14px}
+  #killfeed div{background:rgba(8,12,18,.75);padding:4px 10px;margin-bottom:4px;border-right:3px solid var(--orange)}
+  #killfeed b{color:var(--orange2)} #killfeed .me{color:#7fd}
+  #streakMsg{position:absolute;left:50%;top:22%;transform:translateX(-50%);font-size:26px;font-weight:900;font-style:italic;
+    letter-spacing:3px;color:var(--orange);text-shadow:0 0 18px rgba(255,156,0,.6);opacity:0;transition:opacity .4s}
+  #streakHud{position:absolute;right:34px;bottom:110px;text-align:right;font-size:13px;color:#9ab}
+  #streakHud .ready{color:var(--orange2);font-weight:800}
+  #centerMsg{position:absolute;left:50%;top:35%;transform:translateX(-50%);font-size:20px;color:#fff;letter-spacing:2px;text-shadow:0 2px 6px #000;text-align:center}
+  #scope{position:absolute;inset:0;display:none;background:radial-gradient(circle at center, transparent 26%, #000 27.5%)}
+  #scope .line{position:absolute;background:rgba(0,0,0,.9)}
+  #scope .h{left:0;right:0;top:50%;height:1.5px}#scope .v{top:0;bottom:0;left:50%;width:1.5px}
+
+  /* ---------- SCOREBOARD ---------- */
+  #scoreboard{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;background:var(--dark);
+    border:1px solid rgba(56,182,255,.4);padding:20px 30px;min-width:560px}
+  #scoreboard h3{color:var(--orange);letter-spacing:3px;margin-bottom:12px;font-style:italic}
+  #scoreboard table{width:100%;border-collapse:collapse;font-size:14px}
+  #scoreboard th{color:#8ab;text-align:left;padding:4px 10px;border-bottom:1px solid #345;letter-spacing:1px;font-size:12px}
+  #scoreboard td{padding:4px 10px;border-bottom:1px solid #1c2733}
+  #scoreboard tr.me td{color:#7fd;font-weight:700}
+  #scoreboard .ta{color:var(--blue);font-weight:800} #scoreboard .tb{color:var(--orange);font-weight:800}
+
+  /* ---------- DEATH / END ---------- */
+  #deathScreen{background:rgba(20,0,0,.35);z-index:45}
+  #deathScreen h2{color:#ff5555}
+  #respawnIn{font-size:40px;font-weight:900;color:#fff}
+  #endScreen .winner{font-size:44px;font-weight:900;font-style:italic;letter-spacing:4px}
+  #pauseScreen{background:rgba(0,0,0,.55);z-index:46}
+  .toast{position:fixed;left:50%;bottom:8%;transform:translateX(-50%);background:var(--dark);color:#cde;
+    padding:10px 22px;border:1px solid #345;z-index:60;letter-spacing:1px;font-size:14px}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<!-- HUD -->
+<div id="hud" class="hidden">
+  <div id="dmgVignette"></div>
+  <div id="scope"><div class="line h"></div><div class="line v"></div></div>
+  <div id="crosshair"><span class="t"></span><span class="b"></span><span class="l"></span><span class="r"></span></div>
+  <div id="hitmarker"><span class="t"></span><span class="b"></span><span class="l"></span><span class="r"></span></div>
+  <div id="topbar">
+    <div class="score alpha" id="scoreAlpha">0</div>
+    <div id="matchTimer">10:00</div>
+    <div class="score bravo" id="scoreBravo">0</div>
+  </div>
+  <div id="minimapWrap"><canvas id="minimap" width="160" height="160"></canvas></div>
+  <div id="uavTag">■ UAV ATIVO</div>
+  <div id="killfeed"></div>
+  <div id="streakMsg"></div>
+  <div id="streakHud"></div>
+  <div id="centerMsg"></div>
+  <div id="ammo">
+    <div id="weaponName">M8A1</div>
+    <div><span class="mag" id="ammoMag">30</span> <span class="res" id="ammoRes">/ 120</span></div>
+    <div id="nades">🧨 x2</div>
+  </div>
+  <div id="healthWrap">
+    <div id="healthBar"><div id="healthFill"></div></div>
+    <div id="healthTxt">100</div>
+  </div>
+</div>
+
+<div id="scoreboard" class="hidden">
+  <h3 id="sbTitle">PLACAR — MATA-MATA EM EQUIPE</h3>
+  <table><thead><tr><th>JOGADOR</th><th>EQUIPE</th><th>PONTOS</th><th>VÍTIMAS</th><th>MORTES</th></tr></thead>
+  <tbody id="sbBody"></tbody></table>
+</div>
+
+<!-- MAIN MENU -->
+<div id="menu" class="screen">
+  <h1>BLACK OPS <span>WEB II</span></h1>
+  <div class="sub">FPS MULTIPLAYER NO NAVEGADOR — INSPIRADO EM BLACK OPS 2</div>
+  <div class="panel">
+    <div class="row"><input type="text" id="playerName" maxlength="14" placeholder="SEU NOME DE SOLDADO"></div>
+    <button class="big orange" id="btnSolo">▶ TREINAMENTO (VS BOTS)</button>
+    <button class="big" id="btnHost">🌐 CRIAR PARTIDA ONLINE</button>
+    <div class="row">
+      <input type="text" id="joinCode" maxlength="5" placeholder="CÓDIGO DA SALA" style="text-transform:uppercase">
+      <button id="btnJoin">ENTRAR</button>
+    </div>
+    <div class="err" id="menuErr"></div>
+    <div class="controls">
+      <div><b>WASD</b> — mover</div><div><b>Mouse</b> — mirar</div>
+      <div><b>Botão Esq.</b> — atirar</div><div><b>Botão Dir.</b> — mira (ADS)</div>
+      <div><b>Shift</b> — correr</div><div><b>Espaço</b> — pular</div>
+      <div><b>C</b> — agachar</div><div><b>R</b> — recarregar</div>
+      <div><b>G</b> — granada</div><div><b>V</b> — faca</div>
+      <div><b>1 / 2</b> — trocar arma</div><div><b>3,4,5</b> — scorestreaks</div>
+      <div><b>Tab</b> — placar</div><div><b>Esc</b> — pausa</div>
+    </div>
+  </div>
+</div>
+
+<!-- CLASS SELECT / LOBBY -->
+<div id="classSelect" class="screen hidden">
+  <h2>CRIE SUA CLASSE</h2>
+  <div class="panel" style="min-width:680px">
+    <div class="classes" id="classCards"></div>
+    <div id="roomInfo" class="hidden">
+      <div>SALA: <span class="code" id="roomCode"></span></div>
+      <div id="shareLink" title="clique para copiar"></div>
+      <div style="font-size:12px;color:#8aa;margin-top:4px">Envie o código ou o link para seus amigos entrarem.</div>
+    </div>
+    <button class="big orange" id="btnDeploy">⚔ ENTRAR EM COMBATE</button>
+  </div>
+</div>
+
+<!-- DEATH -->
+<div id="deathScreen" class="screen hidden">
+  <h2>VOCÊ MORREU</h2>
+  <div class="sub" id="killedBy"></div>
+  <div id="respawnIn">5</div>
+  <div class="sub">renascendo…</div>
+</div>
+
+<!-- END -->
+<div id="endScreen" class="screen hidden">
+  <h2>FIM DE PARTIDA</h2>
+  <div class="winner" id="winnerTxt">VITÓRIA</div>
+  <div class="sub" id="endStats"></div>
+  <button class="big orange" id="btnBackMenu" style="max-width:320px">VOLTAR AO MENU</button>
+</div>
+
+<!-- PAUSE -->
+<div id="pauseScreen" class="screen hidden">
+  <h2>PAUSADO</h2>
+  <div class="sub">a partida continua rodando…</div>
+  <button class="big orange" id="btnResume" style="max-width:320px">▶ CONTINUAR</button>
+  <button class="big" id="btnQuit" style="max-width:320px">SAIR DA PARTIDA</button>
+</div>
+
+<script src="./vendor/peerjs.min.js"></script>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js" } }
+</script>
+<script type="module" src="./js/game.js"></script>
+</body>
+</html>
