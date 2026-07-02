@@ -41,6 +41,9 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+        with:
+          # habilita o GitHub Pages automaticamente (não requer passo manual)
+          enablement: true
 
       - name: Upload game artifact
         uses: actions/upload-pages-artifact@v3
