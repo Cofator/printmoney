@@ -1,0 +1,60 @@
+name: Setup GitHub Pages
+
+# Ativa o GitHub Pages do repositório servindo a branch gh-pages (onde os jogos
+# são publicados) e espera o site responder em /bo2/.
+
+on:
+  push:
+    branches:
+      - claude/cod-black-ops-2-clone-xivloi
+    paths:
+      - '.github/workflows/setup-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  pages: write
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Garantir Pages ativado com fonte gh-pages
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -e
+          api() { curl -s -o resp.json -w "%{http_code}" -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" "$@"; }
+          code=$(api "https://api.github.com/repos/$REPO/pages")
+          echo "GET /pages -> $code"
+          cat resp.json || true
+          if [ "$code" = "404" ]; then
+            code=$(api -X POST "https://api.github.com/repos/$REPO/pages" -d '{"source":{"branch":"gh-pages","path":"/"}}')
+            echo "POST /pages -> $code"
+            cat resp.json
+            if [ "$code" != "201" ]; then
+              echo "::error::Não foi possível ativar o Pages via API (HTTP $code). Ative manualmente em Settings > Pages > Source: Deploy from a branch > gh-pages."
+              exit 1
+            fi
+          else
+            code=$(api -X PUT "https://api.github.com/repos/$REPO/pages" -d '{"source":{"branch":"gh-pages","path":"/"}}')
+            echo "PUT /pages -> $code"
+          fi
+          code=$(api -X POST "https://api.github.com/repos/$REPO/pages/builds")
+          echo "POST /pages/builds -> $code"
+
+      - name: Esperar o site responder em /bo2/
+        run: |
+          url="https://cofator.github.io/printmoney/bo2/"
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$url")
+            echo "tentativa $i: HTTP $code"
+            if [ "$code" = "200" ]; then
+              echo "Site no ar: $url"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::O site ainda não respondeu 200 em $url"
+          exit 1
