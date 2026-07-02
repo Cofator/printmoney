@@ -87,11 +87,29 @@ function makeRoomCode() {
 
 const PEER_PREFIX = 'micropolis2k-v1-';
 
+// By default we use PeerJS's free public broker (only used to introduce
+// peers; game traffic is direct P2P). ?peerserver=host:port/path overrides
+// it for self-hosting or testing.
+function peerOptions() {
+  const p = new URLSearchParams(location.search).get('peerserver');
+  const opts = { debug: 1 };
+  if (p) {
+    const m = p.match(/^([^:/]+)(?::(\d+))?(\/.*)?$/);
+    if (m) {
+      opts.host = m[1];
+      opts.port = m[2] ? +m[2] : 443;
+      opts.path = m[3] || '/';
+      opts.secure = opts.port === 443;
+    }
+  }
+  return opts;
+}
+
 function netHost(name, onReady, onFail) {
   Net.myName = name || 'Mayor';
   Net.room = makeRoomCode();
   netSetStatus('Creating room…');
-  const peer = new Peer(PEER_PREFIX + Net.room, { debug: 1 });
+  const peer = new Peer(PEER_PREFIX + Net.room, peerOptions());
   Net.peer = peer;
   peer.on('open', (id) => {
     Net.mode = 'host';
@@ -126,11 +144,12 @@ function netJoin(room, name, onFail) {
   Net.myName = name || 'Visitor';
   Net.room = room.toUpperCase().trim();
   netSetStatus('Connecting to room ' + Net.room + '…');
-  const peer = new Peer({ debug: 1 });
+  const peer = new Peer(peerOptions());
   Net.peer = peer;
   peer.on('open', (id) => {
     Net.myId = id;
-    const conn = peer.connect(PEER_PREFIX + Net.room, { reliable: true });
+    // JSON serialization: binarypack overflows on our large RLE state arrays
+    const conn = peer.connect(PEER_PREFIX + Net.room, { reliable: true, serialization: 'json' });
     Net.conns = [conn];
     let opened = false;
     conn.on('open', () => {
@@ -158,13 +177,37 @@ function hostBroadcast(m, except) {
   for (const c of Net.conns) if (c !== except && c.open) c.send(m);
 }
 
+/* Large messages (full state snapshots) exceed the WebRTC DataChannel
+ * message limit, so we chunk them at the application layer. */
+let _bigSeq = 0;
+function sendBig(conn, obj) {
+  const s = JSON.stringify(obj);
+  const CH = 12000;
+  const n = Math.ceil(s.length / CH);
+  const id = (++_bigSeq) + '.' + Math.floor(Math.random() * 1e6);
+  for (let k = 0; k < n; k++) conn.send({ t: 'big', id, k, n, s: s.substr(k * CH, CH) });
+}
+const _bigBuf = new Map();
+function handleBig(m, dispatch) {
+  let e = _bigBuf.get(m.id);
+  if (!e) { e = { parts: new Array(m.n), got: 0 }; _bigBuf.set(m.id, e); }
+  if (e.parts[m.k] == null) { e.parts[m.k] = m.s; e.got++; }
+  if (e.got === m.n) {
+    _bigBuf.delete(m.id);
+    dispatch(JSON.parse(e.parts.join('')));
+  }
+}
+
 function hostHandle(conn, m) {
   const G = window.GAME;
+  conn._lastSeen = Date.now();
   switch (m.t) {
+    case 'ping':
+      break;
     case 'hello': {
       const color = PLAYER_COLORS[Net.players.length % PLAYER_COLORS.length];
       Net.players.push({ id: conn.peer, name: m.name, color });
-      conn.send({ t: 'welcome', you: conn.peer, state: serializeState(G.S), players: Net.players, room: Net.room, speed: G.speed });
+      sendBig(conn, { t: 'welcome', you: conn.peer, state: serializeState(G.S), players: Net.players, room: Net.room, speed: G.speed });
       hostBroadcast({ t: 'players', players: Net.players }, conn);
       if (Net.onPlayers) Net.onPlayers(Net.players);
       if (Net.onChat) Net.onChat('', m.name + ' joined the city!', '#8f8');
@@ -199,6 +242,9 @@ function hostHandle(conn, m) {
 function guestHandle(m) {
   const G = window.GAME;
   switch (m.t) {
+    case 'big':
+      handleBig(m, guestHandle);
+      break;
     case 'welcome': {
       G.replaceState(deserializeState(m.state));
       Net.players = m.players;
@@ -268,13 +314,22 @@ function netSendCursor(x, y) {
 }
 
 // host: periodic authoritative sync + news relay (call every frame)
-let _lastSync = 0;
+let _lastSync = 0, _lastPing = 0;
 function netTick(nowMs) {
   if (Net.mode === 'host' && Net.conns.length) {
     if (nowMs - _lastSync > 6000) {
       _lastSync = nowMs;
-      hostBroadcast({ t: 'sync', state: serializeState(window.GAME.S), speed: window.GAME.speed });
+      const syncMsg = { t: 'sync', state: serializeState(window.GAME.S), speed: window.GAME.speed };
+      for (const c of Net.conns) if (c.open) sendBig(c, syncMsg);
     }
+    // drop peers that stopped responding (webrtc close detection is slow)
+    for (const c of Net.conns.slice()) {
+      if (c.open && c._lastSeen && Date.now() - c._lastSeen > 20000) c.close();
+    }
+  }
+  if (Net.mode === 'guest' && nowMs - _lastPing > 4000) {
+    _lastPing = nowMs;
+    if (Net.conns[0] && Net.conns[0].open) Net.conns[0].send({ t: 'ping' });
   }
   // expire stale cursors
   for (const [id, c] of Net.cursors) if (Date.now() - c.t > 6000) Net.cursors.delete(id);
