@@ -9,6 +9,11 @@ import { Net, randomCode } from './net.js';
 import { initAudio, sfx } from './audio.js';
 import { preloadAssets } from './assets.js';
 import * as UI from './ui.js';
+import { EffectComposer } from '../vendor/postprocessing/EffectComposer.js';
+import { RenderPass } from '../vendor/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from '../vendor/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from '../vendor/postprocessing/OutputPass.js';
+import { RoomEnvironment } from '../vendor/environments/RoomEnvironment.js';
 
 preloadAssets();
 
@@ -27,10 +32,24 @@ const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.05, 4
 scene.add(camera);
 G.scene = scene; G.camera = camera; G.renderer = renderer;
 
+// ambiente PBR: reflexos suaves em metais e superfícies
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+pmrem.dispose();
+
+// pós-processamento: render + bloom sutil + saída (tonemapping/sRGB), com MSAA
+const composerTarget = new THREE.WebGLRenderTarget(innerWidth, innerHeight, { samples: 4 });
+const composer = new EffectComposer(renderer, composerTarget);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.22, 0.4, 0.93);
+composer.addPass(bloom);
+composer.addPass(new OutputPass());
+
 addEventListener('resize', () => {
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight);
+  composer.setSize(innerWidth, innerHeight);
 });
 
 UI.initUI();
@@ -879,7 +898,9 @@ function tick() {
     }
   }
 
-  renderer.render(scene, camera);
+  // menus são opacos: não desperdiça CPU/GPU renderizando a cena atrás
+  // (também acelera o handshake WebRTC em máquinas lentas)
+  if (G.state !== 'menu') composer.render();
 }
 
 UI.showScreen('menu');

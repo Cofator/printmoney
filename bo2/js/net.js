@@ -65,7 +65,7 @@ export class Net {
       const conn = this.peer.connect(PREFIX + code, { reliable: true });
       const timeout = setTimeout(() => {
         if (!done) { done = true; cb(new Error('Sala não encontrada — confira o código.')); }
-      }, 8000);
+      }, 30000);
       conn.on('open', () => {
         clearTimeout(timeout);
         this.hostConn = conn;

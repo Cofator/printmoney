@@ -15,6 +15,41 @@ function tex(draw, w = 256, h = 256, rx = 1, ry = 1) {
   t.repeat.set(rx, ry);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
+  t.userData.cv = cv;
+  return t;
+}
+
+// Gera um normal map a partir da luminância da própria textura (relevo).
+function normalTex(colorTex, strength = 2.0) {
+  const cv = colorTex.userData.cv;
+  const w = cv.width, h = cv.height;
+  const src = cv.getContext('2d').getImageData(0, 0, w, h).data;
+  const out = document.createElement('canvas');
+  out.width = w; out.height = h;
+  const octx = out.getContext('2d');
+  const img = octx.createImageData(w, h);
+  const hgt = (x, y) => {
+    x = (x + w) % w; y = (y + h) % h;
+    const i = (y * w + x) * 4;
+    return (src[i] + src[i + 1] + src[i + 2]) / 765;
+  };
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const dx = (hgt(x + 1, y) - hgt(x - 1, y)) * strength;
+      const dy = (hgt(x, y + 1) - hgt(x, y - 1)) * strength;
+      const inv = 1 / Math.hypot(dx, dy, 1);
+      const i = (y * w + x) * 4;
+      img.data[i]     = (-dx * inv * 0.5 + 0.5) * 255;
+      img.data[i + 1] = (-dy * inv * 0.5 + 0.5) * 255;
+      img.data[i + 2] = (inv * 0.5 + 0.5) * 255;
+      img.data[i + 3] = 255;
+    }
+  }
+  octx.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(out);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.copy(colorTex.repeat);
+  t.anisotropy = 4;
   return t;
 }
 
@@ -163,31 +198,46 @@ function cloudTex() {
 // ---------------- materiais ----------------
 let MATS = null;
 function buildMats() {
-  const std = (opt) => new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0.0, ...opt });
+  // com normal map derivado da própria textura (relevo) + reflexo de ambiente
+  const std = (opt) => {
+    const bump = opt.bump; delete opt.bump;
+    const m = new THREE.MeshStandardMaterial({ roughness: 0.92, metalness: 0.0, ...opt });
+    if (opt.map && bump) {
+      m.normalMap = normalTex(opt.map, bump);
+      m.normalScale.set(0.8, 0.8);
+    }
+    m.envMapIntensity = opt.metalness > 0.2 ? 0.9 : 0.3;
+    return m;
+  };
   MATS = {
-    grass: std({ map: grassTex() }),
-    asphalt: std({ map: asphaltTex(), roughness: 0.98 }),
-    sideYellow: std({ map: sidingTex('#c9b45c', '#a8933f') }),
-    sideGreen: std({ map: sidingTex('#76b5a0', '#578f7c') }),
-    roof: std({ map: roofTex() }),
-    wood: std({ map: woodTex() }),
-    concrete: std({ map: concreteTex() }),
-    fence: std({ map: fenceTex() }),
-    busYellow: std({ map: metalTex('#d8a02a', '#a87818'), roughness: 0.5, metalness: 0.35 }),
-    carRed: std({ map: metalTex('#9c3b3b', '#702828'), roughness: 0.45, metalness: 0.4 }),
-    carBlue: std({ map: metalTex('#3b5e9c', '#283f70'), roughness: 0.45, metalness: 0.4 }),
-    truckWhite: std({ map: metalTex('#c8c8c4', '#9a9a96'), roughness: 0.55, metalness: 0.3 }),
-    trailer: std({ map: metalTex('#9fb8a0', '#7a927b'), roughness: 0.6, metalness: 0.25 }),
-    glass: new THREE.MeshStandardMaterial({ color: 0x9fd0e8, roughness: 0.1, metalness: 0.6, transparent: true, opacity: 0.45 }),
-    darkGlass: new THREE.MeshStandardMaterial({ color: 0x223a4a, roughness: 0.15, metalness: 0.7 }),
+    grass: std({ map: grassTex(), bump: 1.2 }),
+    asphalt: std({ map: asphaltTex(), roughness: 0.98, bump: 1.6 }),
+    sideYellow: std({ map: sidingTex('#c9b45c', '#a8933f'), bump: 2.4 }),
+    sideGreen: std({ map: sidingTex('#76b5a0', '#578f7c'), bump: 2.4 }),
+    roof: std({ map: roofTex(), bump: 2.6 }),
+    wood: std({ map: woodTex(), bump: 2.0 }),
+    concrete: std({ map: concreteTex(), bump: 1.4 }),
+    fence: std({ map: fenceTex(), bump: 2.2 }),
+    busYellow: std({ map: metalTex('#d8a02a', '#a87818'), roughness: 0.45, metalness: 0.45 }),
+    carRed: std({ map: metalTex('#9c3b3b', '#702828'), roughness: 0.35, metalness: 0.55 }),
+    carBlue: std({ map: metalTex('#3b5e9c', '#283f70'), roughness: 0.35, metalness: 0.55 }),
+    truckWhite: std({ map: metalTex('#c8c8c4', '#9a9a96'), roughness: 0.5, metalness: 0.4 }),
+    trailer: std({ map: metalTex('#9fb8a0', '#7a927b'), roughness: 0.55, metalness: 0.35 }),
+    glass: new THREE.MeshStandardMaterial({ color: 0x9fd0e8, roughness: 0.05, metalness: 0.8, transparent: true, opacity: 0.4, envMapIntensity: 1.4 }),
+    darkGlass: new THREE.MeshStandardMaterial({ color: 0x1c2f3c, roughness: 0.08, metalness: 0.85, envMapIntensity: 1.3 }),
     tire: std({ color: 0x1c1c1e, roughness: 0.95 }),
+    chrome: new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 0.15, metalness: 1.0, envMapIntensity: 1.2 }),
+    headlight: new THREE.MeshStandardMaterial({ color: 0xfff8e0, emissive: 0xfff3c0, emissiveIntensity: 0.5, roughness: 0.2 }),
+    taillight: new THREE.MeshStandardMaterial({ color: 0xc02020, emissive: 0x801010, emissiveIntensity: 0.4, roughness: 0.3 }),
+    trim: std({ color: 0xe8e4da, roughness: 0.7 }),
+    doorWood: std({ map: woodTex(), color: 0x8a5a38, bump: 1.6 }),
     interior: std({ color: 0xbbb2a2 }),
-    floor: std({ map: woodTex(), color: 0xb8a888 }),
-    pole: std({ color: 0x4a4a4c, roughness: 0.5, metalness: 0.6 }),
+    floor: std({ map: woodTex(), color: 0xb8a888, bump: 1.6 }),
+    pole: std({ color: 0x4a4a4c, roughness: 0.4, metalness: 0.7 }),
     trunk: std({ color: 0x6a4a2c }),
     leaf1: std({ color: 0x4a7a34 }),
     leaf2: std({ color: 0x5c8c3c }),
-    furniture: std({ map: woodTex(), color: 0x9a7a58 }),
+    furniture: std({ map: woodTex(), color: 0x9a7a58, bump: 1.6 }),
   };
 }
 
@@ -243,12 +293,57 @@ function wallWithDoor(cx, cz, len, axis, m, doorAt = 0, doorW = 1.7, h = 3.4) {
   else solid(t, h - 2.2, doorW, cx, 2.2, cz + doorAt, m);
 }
 
+// Telhado de duas águas com cumeeira ao longo do eixo x e oitões fechados.
+function pitchedRoof(cx, cz, W, D, baseY, rise, mat, gableMat) {
+  const ov = 0.6;                       // beiral
+  const halfD = D / 2 + ov;
+  const slopeLen = Math.hypot(halfD, rise) + 0.15;
+  const ang = Math.atan2(rise, halfD);
+  for (const s of [-1, 1]) {
+    const slab = new THREE.Mesh(boxGeo(W + 1.2, 0.16, slopeLen), mat);
+    slab.position.set(cx, baseY + rise / 2 + 0.02, cz + s * halfD / 2);
+    slab.rotation.x = s * ang;
+    slab.castShadow = slab.receiveShadow = true;
+    G.scene.add(slab);
+    G.worldMeshes.push(slab); G.rayTargets.push(slab);
+  }
+  // cumeeira
+  const ridge = new THREE.Mesh(boxGeo(W + 1.2, 0.12, 0.3), mat);
+  ridge.position.set(cx, baseY + rise + 0.06, cz);
+  ridge.castShadow = true;
+  G.scene.add(ridge);
+  // oitões (triângulos nas pontas)
+  const shape = new THREE.Shape();
+  shape.moveTo(-D / 2, 0); shape.lineTo(D / 2, 0); shape.lineTo(0, rise); shape.closePath();
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.3, bevelEnabled: false });
+  for (const s of [-1, 1]) {
+    const gable = new THREE.Mesh(geo, gableMat);
+    gable.rotation.y = Math.PI / 2;
+    gable.position.set(cx + s * W / 2 - (s > 0 ? 0.3 : 0), baseY, cz);
+    gable.castShadow = gable.receiveShadow = true;
+    G.scene.add(gable);
+    G.worldMeshes.push(gable); G.rayTargets.push(gable);
+  }
+}
+
+// Moldura branca em volta de um vão na parede frontal/traseira (eixo x).
+function trimX(cx, cz, w, y0, y1, t = 0.06) {
+  const th = 0.1, d = 0.42;
+  deco(th, y1 - y0 + th * 2, d, cx - w / 2 - th / 2, y0 - th, cz, MATS.trim);
+  deco(th, y1 - y0 + th * 2, d, cx + w / 2 + th / 2, y0 - th, cz, MATS.trim);
+  deco(w + th * 2, th, d, cx, y1, cz, MATS.trim);
+  if (y0 > 0.05) deco(w + th * 2, th, d, cx, y0 - th, cz, MATS.trim);
+}
+
 // Constrói casa completa (frente/trás/lados com vãos de porta e janela).
 function fullHouse(cx, cz, faceDir, sideMat) {
   const W = 11, D = 8.5, H = 3.4, t = 0.35;
   const front = cz + faceDir * D / 2, back = cz - faceDir * D / 2;
   solid(W, 0.2, D, cx, 0, cz, MATS.floor);                 // piso
-  solid(W + 1.1, 0.35, D + 1.1, cx, H, cz, MATS.roof);     // telhado com beiral
+  // laje invisível só para colisão + telhado visível de duas águas
+  const slab = solid(W + 1.1, 0.35, D + 1.1, cx, H, cz, MATS.roof, { ray: false });
+  slab.visible = false;
+  pitchedRoof(cx, cz, W, D, H, 1.3, MATS.roof, sideMat);
   // frente: porta à esquerda (-2.6, larg 1.7) e janela à direita (2.9, larg 2.4)
   solid(2.05, H, t, cx - 4.475, 0, front, sideMat);
   solid(3.45, H, t, cx - 0.025, 0, front, sideMat);
@@ -257,6 +352,15 @@ function fullHouse(cx, cz, faceDir, sideMat) {
   solid(2.4, 1.0, t, cx + 2.9, 0, front, sideMat);         // parapeito da janela
   solid(2.4, H - 2.3, t, cx + 2.9, 2.3, front, sideMat);   // acima da janela
   deco(2.3, 1.25, 0.06, cx + 2.9, 1.02, front, MATS.glass); // vidro da janela frontal
+  // molduras brancas e porta aberta encostada por dentro
+  trimX(cx - 2.6, front, 1.7, 0, 2.2);
+  trimX(cx + 2.9, front, 2.4, 1.0, 2.3);
+  deco(2.4 + 0.12, 0.09, 0.5, cx + 2.9, 0.94, front, MATS.trim); // peitoril saliente
+  const door = deco(0.09, 2.1, 1.5, cx - 2.6 - 0.8, 0, front - faceDir * 0.85, MATS.doorWood);
+  door.castShadow = true;
+  deco(0.05, 0.05, 0.12, cx - 2.6 - 0.83, 1.05, front - faceDir * 0.35, MATS.chrome); // maçaneta
+  // degrau de entrada
+  solid(2.2, 0.16, 0.9, cx - 2.6, 0, front + faceDir * 0.55, MATS.concrete);
   wallWithDoor(cx, back, W, 'x', sideMat, 2.6);            // trás: porta à direita
   // laterais com janela central
   for (const sx of [-1, 1]) {
@@ -272,8 +376,8 @@ function fullHouse(cx, cz, faceDir, sideMat) {
   // móveis (cobertura interna)
   solid(1.8, 0.9, 0.9, cx + 3, 0.2, cz - 2.5, MATS.furniture);
   solid(0.9, 1.6, 0.9, cx - 4.2, 0.2, cz + 2.6, MATS.furniture);
-  // chaminé decorativa
-  deco(0.8, 1.2, 0.8, cx - 3.4, H, cz - 1.5, MATS.concrete);
+  // chaminé decorativa (atravessa o telhado inclinado)
+  deco(0.8, 2.0, 0.8, cx - 3.4, H, cz - 1.5, MATS.concrete);
 }
 
 function wheel(x, y, z, r = 0.42, w = 0.28) {
@@ -289,6 +393,14 @@ function car(cx, cz, bodyMat) {
   solid(4.2, 1.1, 2, cx, 0.35, cz, bodyMat);                  // carroceria
   solid(2.1, 0.75, 1.8, cx - 0.2, 1.45, cz, bodyMat);         // cabine
   deco(1.9, 0.55, 1.84, cx - 0.2, 1.5, cz, MATS.darkGlass);   // vidros
+  deco(0.18, 0.22, 2.06, cx - 2.15, 0.42, cz, MATS.chrome);   // para-choques
+  deco(0.18, 0.22, 2.06, cx + 2.15, 0.42, cz, MATS.chrome);
+  deco(0.06, 0.16, 0.34, cx - 2.12, 0.85, cz - 0.6, MATS.headlight); // faróis
+  deco(0.06, 0.16, 0.34, cx - 2.12, 0.85, cz + 0.6, MATS.headlight);
+  deco(0.06, 0.16, 0.34, cx + 2.12, 0.85, cz - 0.6, MATS.taillight); // lanternas
+  deco(0.06, 0.16, 0.34, cx + 2.12, 0.85, cz + 0.6, MATS.taillight);
+  deco(0.1, 0.1, 0.24, cx - 0.9, 1.4, cz - 1.06, MATS.chrome);  // retrovisores
+  deco(0.1, 0.1, 0.24, cx - 0.9, 1.4, cz + 1.06, MATS.chrome);
   wheel(cx - 1.4, 0.42, cz - 1.0); wheel(cx + 1.4, 0.42, cz - 1.0);
   wheel(cx - 1.4, 0.42, cz + 1.0); wheel(cx + 1.4, 0.42, cz + 1.0);
   // colisor baixo extra sob a carroceria
@@ -299,10 +411,56 @@ function bus(cx, cz) {
   solid(9, 2.6, 2.6, cx, 0.55, cz, MATS.busYellow);
   deco(9.04, 0.7, 2.5, cx, 1.9, cz, MATS.darkGlass);          // faixa de janelas
   deco(9.04, 0.12, 2.64, cx, 1.55, cz, MATS.tire);            // friso
+  deco(0.1, 0.85, 2.3, cx - 4.52, 1.85, cz, MATS.darkGlass);  // para-brisa
+  deco(0.14, 0.2, 2.5, cx - 4.53, 0.68, cz, MATS.chrome);     // para-choque
+  deco(0.14, 0.2, 2.5, cx + 4.53, 0.68, cz, MATS.chrome);
+  deco(0.07, 0.18, 0.4, cx - 4.55, 0.95, cz - 0.85, MATS.headlight);
+  deco(0.07, 0.18, 0.4, cx - 4.55, 0.95, cz + 0.85, MATS.headlight);
+  deco(0.07, 0.18, 0.4, cx + 4.55, 0.95, cz - 0.85, MATS.taillight);
+  deco(0.07, 0.18, 0.4, cx + 4.55, 0.95, cz + 0.85, MATS.taillight);
+  deco(1.2, 0.1, 1.6, cx + 1.2, 3.17, cz, MATS.tire);         // saída de ar no teto
   solid(1.5, 0.9, 2.2, cx - 5.6, 0, cz, MATS.tire);           // degrau/motor
   wheel(cx - 3, 0.5, cz - 1.32, 0.5, 0.3); wheel(cx + 3, 0.5, cz - 1.32, 0.5, 0.3);
   wheel(cx - 3, 0.5, cz + 1.32, 0.5, 0.3); wheel(cx + 3, 0.5, cz + 1.32, 0.5, 0.3);
   G.colliders.push(aabb(cx, 0.3, cz, 9, 0.6, 2.6));
+}
+
+// tufos de grama instanciados espalhados pelos gramados
+function scatterGrass() {
+  const bladeTex = tex((c, w, h) => {
+    c.clearRect(0, 0, w, h);
+    for (let i = 0; i < 18; i++) {
+      const x = 6 + Math.random() * (w - 12);
+      const hh = h * (0.45 + Math.random() * 0.5);
+      c.strokeStyle = ['#4a7a30', '#5c8c3c', '#6f9448'][i % 3];
+      c.lineWidth = 2.5;
+      c.beginPath();
+      c.moveTo(x, h);
+      c.quadraticCurveTo(x + (Math.random() - 0.5) * 10, h - hh * 0.6, x + (Math.random() - 0.5) * 16, h - hh);
+      c.stroke();
+    }
+  }, 64, 64);
+  const mat = new THREE.MeshStandardMaterial({ map: bladeTex, alphaTest: 0.4, side: THREE.DoubleSide, roughness: 1 });
+  const geo = new THREE.PlaneGeometry(0.55, 0.4);
+  geo.translate(0, 0.2, 0);
+  const inst = new THREE.InstancedMesh(geo, mat, 700);
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), up = new THREE.Vector3(0, 1, 0), sc = new THREE.Vector3();
+  let placed = 0, guard = 0;
+  while (placed < 700 && guard++ < 6000) {
+    const x = (Math.random() - 0.5) * 60, z = (Math.random() - 0.5) * 36;
+    if (Math.abs(z) < 6.2) continue;                                   // rua e calçadas
+    if (Math.abs(x + 17) < 7 && Math.abs(z + 11) < 6) continue;        // casa amarela
+    if (Math.abs(x - 17) < 7 && Math.abs(z - 11) < 6) continue;        // casa verde
+    if (Math.abs(x + 24) < 3 && Math.abs(z - 6) < 4.2) continue;       // caminhão
+    if (Math.abs(x - 24) < 3 && Math.abs(z + 6) < 4.2) continue;       // trailer
+    q.setFromAxisAngle(up, Math.random() * Math.PI);
+    const s = 0.7 + Math.random() * 0.9;
+    sc.set(s, s, s);
+    m4.compose(new THREE.Vector3(x, 0, z), q, sc);
+    inst.setMatrixAt(placed++, m4);
+  }
+  inst.count = placed;
+  G.scene.add(inst);
 }
 
 function tree(x, z, s = 1) {
@@ -407,15 +565,24 @@ export function buildMap() {
   road.rotation.x = -Math.PI / 2; road.position.y = 0.02;
   road.receiveShadow = true;
   S.add(road); G.worldMeshes.push(road);
-  // calçadas
+  // calçadas + meio-fio
   for (const sz of [-1, 1]) {
     const sw = new THREE.Mesh(new THREE.PlaneGeometry(MAP_W, 1.4), MATS.concrete);
     sw.rotation.x = -Math.PI / 2; sw.position.set(0, 0.025, sz * 5.2);
     sw.receiveShadow = true;
     S.add(sw);
+    deco(MAP_W, 0.13, 0.22, 0, 0, sz * 4.55, MATS.trim);
+  }
+  // bueiros na rua
+  const mhMat = new THREE.MeshStandardMaterial({ color: 0x2a2a2c, roughness: 0.6, metalness: 0.7 });
+  for (const [mx, mz] of [[-14, 1.4], [10, -1.6]]) {
+    const mh = new THREE.Mesh(new THREE.CircleGeometry(0.5, 20), mhMat);
+    mh.rotation.x = -Math.PI / 2; mh.position.set(mx, 0.035, mz);
+    mh.receiveShadow = true;
+    S.add(mh);
   }
   // faixa central da rua
-  const stripeMat = new THREE.MeshStandardMaterial({ color: 0xd8c840, roughness: 0.9 });
+  const stripeMat = new THREE.MeshStandardMaterial({ color: 0xa89530, roughness: 0.95 });
   for (let x = -28; x <= 28; x += 6) {
     const stripe = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.35), stripeMat);
     stripe.rotation.x = -Math.PI / 2; stripe.position.set(x, 0.03, 0);
@@ -482,6 +649,7 @@ export function buildMap() {
   // vegetação dentro dos quintais (visual, sem colisão)
   bush(-13.5, -15.5); bush(-21, -16); bush(13.5, 15.5); bush(21, 16);
   bush(-11.5, 8.5); bush(11.5, -8.5);
+  scatterGrass();
 
   // árvores e casario atrás dos muros (cenário)
   tree(-36, -12); tree(-38, 8, 1.2); tree(36, 12); tree(38, -8, 1.15);
