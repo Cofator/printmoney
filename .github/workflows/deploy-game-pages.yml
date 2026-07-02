@@ -1,0 +1,85 @@
+name: Deploy Micropolis 2000 to GitHub Pages
+
+# Publishes simcity/ to the simcity/ folder of the gh-pages branch, which
+# GitHub Pages serves at https://cofator.github.io/printmoney/simcity/.
+# The deploy is an overlay: other content on gh-pages (e.g. other games
+# deployed from other branches) is preserved, and a small hub page at the
+# root links to every game folder it finds.
+on:
+  push:
+    branches:
+      - claude/simcity-2000-multiplayer-game-28n4s2
+      - claude/moneyprinterturbo-setup-o75fk7
+    paths:
+      - 'simcity/**'
+      - 'simcity-v1/**'
+      - '.github/workflows/deploy-game-pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: gh-pages-simcity
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Overlay simcity/ onto gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -eux
+          REPO_URL="https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git clone --depth 1 --branch gh-pages "$REPO_URL" /tmp/site; then
+            cd /tmp/site
+          else
+            mkdir -p /tmp/site && cd /tmp/site
+            git init -b gh-pages
+            git remote add origin "$REPO_URL"
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # If a previous run of this workflow deployed the game to the ROOT,
+          # clean those files up (they moved into simcity/).
+          if [ -f index.html ] && grep -q "Micropolis 2000" index.html && ! grep -q "games-hub" index.html; then
+            rm -rf index.html style.css js vendor README.md
+          fi
+
+          rm -rf simcity
+          mkdir -p simcity
+          cp -a "$GITHUB_WORKSPACE/simcity/." simcity/
+          rm -f simcity/.nojekyll
+          if [ -d "$GITHUB_WORKSPACE/simcity-v1" ]; then
+            rm -rf simcity-v1
+            mkdir -p simcity-v1
+            cp -a "$GITHUB_WORKSPACE/simcity-v1/." simcity-v1/
+          fi
+          touch .nojekyll
+
+          # Root hub page (only created/updated if the root is ours or empty)
+          if [ ! -f index.html ] || grep -q "games-hub" index.html; then
+            {
+              echo '<!DOCTYPE html><html><head><meta charset="utf-8"><!-- games-hub -->'
+              echo '<title>Games</title><style>body{font-family:sans-serif;background:#101820;color:#eee;display:flex;flex-direction:column;align-items:center;padding-top:10vh}a{color:#7dc4ff;font-size:22px;margin:10px}</style></head><body><h1>🎮 Games</h1>'
+              for d in */; do
+                d="${d%/}"
+                if [ -f "$d/index.html" ]; then
+                  echo "<a href=\"$d/\">$d</a>"
+                fi
+              done
+              echo '</body></html>'
+            } > index.html
+          fi
+
+          git add -A
+          git commit -m "Deploy Micropolis 2000 from ${GITHUB_SHA::7}" || echo "nothing to deploy"
+          # tolerate concurrent deploys from other branches
+          for i in 1 2 3; do
+            git push origin gh-pages && break
+            git fetch origin gh-pages && git rebase origin/gh-pages || { git rebase --abort; git pull --no-rebase -X ours origin gh-pages; }
+          done
